@@ -4,7 +4,7 @@
 import os
 import encodeMission
 from extractJSON import *
-from generate_MDP_time import constructKGModule, constructActionsModule, replaceIdx
+from generate_MDP_time import constructKGModule, constructActionsModule, replaceIdx, saveMDPfile
 
 def callPRISM(MDPpath, propertyPath, outputPath, PRISMpath):
 	''' run PRISM in terminal from PRISMpath (/Applications/prism-4.5-osx64/bin)
@@ -36,13 +36,11 @@ def main():
 	teamTime = findTimeBounds(team, target, pathTimeJSON)
 
 	a_prefix, s_prefix, m_prefix = 'a', 's', 'm'
-	a_list = generateAlist(team, pathToDict, a_prefix)
-	s_list = generateSlist(team, pathToDict, s_prefix)
-	m_list = generateMlist(team, pathToDict, m_prefix)
+	a_list, s_list, m_list = generateASMlists(team, pathToDict, a_prefix, s_prefix, m_prefix)
 	num_a, num_s, num_m = len(a_list), len(s_list), len(m_list)
 
 	# mission for PRISM
-	missionPCTL = encodeMission.generateMissionPCTL(pathMissionJSON, m_list)
+	missionPCTL = encodeMission.generateMissionPCTL(pathMissionJSON, m_list, missionFile, saveFile = True)
 	missionLength = encodeMission.findMissionLength(pathMissionJSON)
 
 	# relationship matrices
@@ -53,21 +51,12 @@ def main():
 	# modules for PRISM MDP
 	KG_module = constructKGModule(num_a, num_s, num_m, a_prefix, s_prefix,m_prefix,a_list, s_list,teamTime, relation_as, relation_ms,relation_ms_no, probDict,pathToDict,missionLength)
 	actions_module = constructActionsModule(num_a, num_s, teamTime, relation_as, a_prefix, s_prefix, a_list, s_list, pathToDict)
-
 	KG_module, actions_module = replaceIdx(a_list, s_list, m_list, KG_module, actions_module)
 
-	# save mission spec and MDP 
-	text_file = open(missionFile, "w")
-	text_file.write(missionPCTL)
-	text_file.close()
+	saveMDPfile(KG_module, actions_module, mdpFile)
 
-	text_file = open(mdpFile, "w")
-	text_file.write(KG_module+actions_module)
-	text_file.close()
-
-	# call PRISM
+	# save PRISM files to current directory
 	current_dir = str(os.getcwd())
-
 	MDPpath = current_dir + '/' + mdpFile
 	propertyPath = current_dir + '/' + missionFile
 	outputPath = current_dir + '/' + outputFile	

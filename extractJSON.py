@@ -155,6 +155,12 @@ def generateMlist(team, pathToDict, prefix):
 	sort_nicely(m_list)
 	return m_list
 
+def generateASMlists(team, pathToDict, a_prefix, s_prefix, m_prefix):
+	a_list = generateAlist(team, pathToDict, a_prefix)
+	s_list = generateSlist(team, pathToDict, s_prefix)
+	m_list = generateMlist(team, pathToDict, m_prefix)
+	return a_list, s_list, m_list
+
 def create_asDict(team, pathToDict, a_prefix, s_prefix):
 	''' convert team to only have agent and sensor IDs
 	{a1: [s1, s2], a2: [s1, s3, s4], ...}}
@@ -221,8 +227,7 @@ def notMeasMat(team, pathToDict, relation_ms, num_m, num_s, s_prefix, m_prefix, 
 				relation_ms_no_str[r][c] = '1'
 			else:
 				idx += 1
-				relation_ms_no_str[r][c] = '1-P' + str(idx)   # THIS WILL CHANGE DEPENDING IN ZHAOLIANG'S OUTPUT
-				# prob = (prob_array[m][s]).decode("utf-8")   # convert byte to string
+				relation_ms_no_str[r][c] = '1-P' + str(idx)   
 				probDict['P'+str(idx)] = sm_dict[s_list[c]][0][1]
-	relation_ms_no_str = relation_ms_no_str.decode("utf-8")
+	relation_ms_no_str = relation_ms_no_str.decode("utf-8") 	# convert byte to string
 	return relation_ms_no_str, probDict

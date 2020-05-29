@@ -51,9 +51,6 @@ def allStates_as2(num_a, num_s, relation_as):
 
     # for each combination, set indices in that combination to be 1
     for c in range(len(allcombos_a)):
-        # print('c',combs[c])
-        # multiplier = 
-        # multiplier = np.array([allcombos_a[c][0],]*num_s)
         state = np.multiply(relation_as,np.transpose(allcombos_a[c]))
         states_array.append(state)
  
@@ -226,7 +223,6 @@ def init_states(num_a, num_s, num_m, row_prefix, col_prefix, m_prefix, a_list, s
                 agent = findID(a, pathToDict, row_prefix)
                 agentIdx = a_list.index(agent)+1
                 vis_list.append(row_prefix + str(agentIdx) + '_'+col_prefix + str(visIdx))
-    print('vis',vis_list)
 
     states_as = names_as(num_a, num_s, row_prefix, col_prefix)
     states_m = names_m(num_m, m_prefix)
@@ -237,7 +233,6 @@ def init_states(num_a, num_s, num_m, row_prefix, col_prefix, m_prefix, a_list, s
     for s in range(len(states_as)):
         if states_as[s] not in vis_list:
             initval = 0
-            # break
         else:
             initval = 1
 
@@ -510,7 +505,6 @@ def action2state(num_a, num_s, row_prefix, col_prefix, action):
 
             elem_list = []
             act = ""
-    # print(state_list)
     
     # step 2: take each list within the list and use them as indices for where to place ones
 
@@ -565,7 +559,6 @@ def entireLine4state(num_a, num_s, num_m,row_prefix, col_prefix,m_prefix, a_list
         beforeArrow +=finalT
 
         all_str += "\n"+action + "   " + beforeArrow + " -> \n        " + trans_dict[action]
-        # all_str += "\n"+action + "   " + beforeArrow + " -> \n" + trans_dict[action]
     return all_str
 
 def probConstants(probDict):
@@ -626,3 +619,7 @@ def replaceIdx(a_list, s_list, m_list, KG_module, actions_module):
         KG_module = KG_module.replace("m" + str(i+1) + "'", m_list[i] + "'")
     return KG_module, actions_module
 
+def saveMDPfile(KG_module, actions_module, mdpFile):
+    text_file = open(mdpFile, "w")
+    text_file.write(KG_module+actions_module)
+    text_file.close()

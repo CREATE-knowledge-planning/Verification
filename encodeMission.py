@@ -26,9 +26,9 @@ def findMissionLength(pathMissionJSON):
 		
 		deltaSec += round(deltaSubSec)
 		
-		return math.ceil(deltaSec/3600)     # rounding up, dividing to discretize timesteps into hours
+		return math.ceil(deltaSec/3600.)     # rounding up, dividing to discretize timesteps into hours
 
-def generateMissionPCTL(pathMissionJSON, m_list):
+def generateMissionPCTL(pathMissionJSON, m_list, missionFile, saveFile = False):
 	'''Pmax=?[(true U <= 10 ((m1=1) & (m2=1)))]'''
 	missionLength = findMissionLength(pathMissionJSON)
 	spec = "Pmax=?[!(true U <= " + str(missionLength) + ' !('
@@ -37,4 +37,10 @@ def generateMissionPCTL(pathMissionJSON, m_list):
 		spec += m + '=1 & '
 	spec = spec[:-3]    # remove extra ' & '
 	spec += '))]'
+
+	if saveFile:
+		# save mission spec as file
+		text_file = open(missionFile, "w")
+		text_file.write(spec)
+		text_file.close()
 	return spec
