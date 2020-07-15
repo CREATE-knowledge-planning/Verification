@@ -1,5 +1,5 @@
 .DS_Store
-# ignore json files
-*.json
-*.txt
+# ignore all files except for python 
+*
+!*.py
 __pycache__
