@@ -2,9 +2,10 @@
 
 # main file to run verification step
 import os
-import encodeMission
-from extractJSON import *
-from generate_MDP_time import constructKGModule, constructActionsModule, replaceIdx, saveMDPfile
+
+from . import encodeMission
+from .extractJSON import *
+from .generate_MDP_time import constructKGModule, constructActionsModule, replaceIdx, saveMDPfile
 
 def callPRISM(MDPpath, propertyPath, outputPath, PRISMpath):
 	''' run PRISM in terminal from PRISMpath (/Applications/prism-4.5-osx64/bin)
@@ -63,6 +64,7 @@ def main():
 
 	callPRISM(MDPpath, propertyPath, outputPath, PRISMpath)
 
+
 if __name__== "__main__":
-  		main()
+	main()
 
