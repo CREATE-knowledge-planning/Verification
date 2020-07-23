@@ -4,7 +4,8 @@ import json
 import datetime as dt
 from dateutil.relativedelta import relativedelta
 import math
-import extractJSON
+
+from Verification import extractJSON
 
 def findMissionLength(pathMissionJSON):
 	'''finding mission length, assuming any and all observation durations = mission duration

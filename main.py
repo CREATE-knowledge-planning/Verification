@@ -4,25 +4,28 @@
 import os
 import random
 
-import .encodeMission
-from .extractJSON import *
-from .generate_MDP_pruned import *
-import .parseADV
+from Verification import encodeMission, parseADV
+from Verification.extractJSON import *
+from Verification.generate_MDP_pruned import *
 
 
-def callPRISM(MDPpath, propertyPath, outputPath, PRISMpath):
+def callPRISM(mdp_path, property_path, output_path, prism_path):
     ''' run PRISM in terminal from PRISMpath (/Applications/prism-4.5-osx64/bin)
     save output log in outputPath
     '''
-    os.chdir(PRISMpath)
-    command = './prism ' + MDPpath + ' ' + propertyPath + ' > ' + outputPath 
+    os.chdir(prism_path)
+    prism_exec = os.path.join(prism_path, 'prism.bat')
+    command = f'"{prism_exec}" -cuddmaxmem 16g {mdp_path} {property_path} > {output_path}'
     print(command)
     os.system(command)
 
-def outputADV(MDPpath, propertyPath, PRISMpath):
+def outputADV(MDPpath, propertyPath, PRISMpath, int_path):
     # save adversary files
     os.chdir(PRISMpath)
-    command = './prism ' + MDPpath + ' ' + propertyPath + '  -exportadvmdp adv.tra -exportprodstates prod.sta'
+    prism_exec = os.path.join(PRISMpath, 'prism.bat')
+    adv_file = os.path.join(int_path, 'adv.tra')
+    prod_file = os.path.join(int_path, 'prod.sta')
+    command = f'"{prism_exec}" {MDPpath} {propertyPath} -exportadvmdp {adv_file} -exportprodstates {prod_file}'
     os.system(command)
 
 def outputResult(outputPath):
@@ -49,18 +52,20 @@ def constructTeam(team):
             team[a][i][s+'__'+str(num)] = team[a][i].pop(s)     # replace sensor with sensor__num
             allsensors.append(s)
 
-def main(team):
-    # data from knowledge graph 
-    pathTimeJSON = 'accesses.json'
-    pathMissionJSON = 'mission.json'
-    pathToDict = '../KG_examples/outputs_KGMLN_1/output.dict'
+
+def main(team, location):
+    # data from knowledge graph
+    int_path = os.path.join(os.getcwd(), "int_files")
+    path_time_json = os.path.join(int_path, 'accesses', location + '.json')
+    path_mission_json = os.path.join(int_path, 'mission.json')
+    path_to_dict = os.path.join(int_path, 'output.dict')
     # bin directory of PRISM application
-    PRISMpath = '/Applications/prism-4.5-osx64/bin'      
+    prism_path = os.path.join('C:\\', 'Program Files', 'prism-4.6', 'bin')
 
     # name of files for PRISM (saved to current directory)
-    missionFile = "prop.txt"             # specification
-    mdpFile = "KG_MDP.txt"                   # MDP
-    outputFile = "output.txt"            # output log
+    mission_file = os.path.join(int_path, "prop.txt")             # specification
+    mdp_file = os.path.join(int_path, "KG_MDP.txt")                   # MDP
+    output_file = os.path.join(int_path, "output.txt")            # output log
 
     # res1 = [random.randrange(0, 1000)/1000. for i in range(168)] 
     # res2 =     [random.randrange(0, 1000)/1000. for i in range(168)] 
@@ -69,56 +74,54 @@ def main(team):
     #     'Metop-A': [{'IASI': {'Land surface temperature': res2}}]}
 
     constructTeam(team)
-    target = findTarget(pathMissionJSON)
-    teamTime = findTimeBounds(team, target, pathTimeJSON)
+    target = findTarget(path_mission_json)
+    team_time = findTimeBounds(team, location, path_time_json)
     a_prefix, s_prefix, m_prefix = 'a', 's', 'm'
-    teamTimeID = generate_teamTimeID(pathToDict, teamTime, a_prefix, s_prefix)
-    a_list, s_list, m_list = generateASMlists(team, pathToDict, a_prefix, s_prefix, m_prefix)
+    team_time_id = generate_teamTimeID(path_to_dict, team_time, a_prefix, s_prefix)
+    a_list, s_list, m_list = generateASMlists(team, path_to_dict, a_prefix, s_prefix, m_prefix)
     num_a, num_s, num_m = len(a_list), len(s_list), len(m_list)
     num_s = len(s_list)
 
     # mission for PRISM
-    missionLength = encodeMission.findMissionLength(pathMissionJSON)
-    # missionPCTL = encodeMission.generateMissionPCTL(pathMissionJSON, m_list, missionFile, saveFile = True)
-    missionPCTL = encodeMission.generateMissionMulti(m_list, missionFile, rewardList, saveFile = True)
+    rewardList = ['numAgents']
+    missionLength = encodeMission.findMissionLength(path_mission_json)
+    # missionPCTL = encodeMission.generateMissionPCTL(path_mission_json, m_list, mission_file, saveFile = True)
+    missionPCTL = encodeMission.generateMissionMulti(m_list, mission_file, rewardList, saveFile = True)
     
     # relationship matrices
-    relation_as = construct_asMatrix(team, pathToDict, num_a, num_s, a_prefix, s_prefix, a_list, s_list)
-    relation_ms = construct_msMatrix(team, pathToDict, num_m, num_s, m_prefix, s_prefix, m_list, s_list)
+    relation_as = construct_asMatrix(team, path_to_dict, num_a, num_s, a_prefix, s_prefix, a_list, s_list)
+    relation_ms = construct_msMatrix(team, path_to_dict, num_m, num_s, m_prefix, s_prefix, m_list, s_list)
     
-    relation_ms_no, probDict = notMeasMat(team, pathToDict, relation_ms, num_m, num_s,  m_prefix, s_prefix, m_list, s_list)
+    relation_ms_no, probDict = notMeasMat(team, path_to_dict, relation_ms, num_m, num_s,  m_prefix, s_prefix, m_list, s_list)
 
     # modules for PRISM MDP
-    KG_module = constructKGModule(num_a, num_s, num_m, a_prefix, s_prefix,m_prefix,a_list, s_list,teamTime, teamTimeID, relation_as, relation_ms,relation_ms_no, probDict,pathToDict,missionLength)
+    KG_module = constructKGModule(num_a, num_s, num_m, a_prefix, s_prefix,m_prefix,a_list, s_list,team_time, team_time_id, relation_as, relation_ms,relation_ms_no, probDict,path_to_dict,missionLength)
 
     rewardsName = 'numAgents'   # criteria we care about
-    rewards_module = constructNumAgentsCost(num_a, num_s, teamTime, teamTimeID, relation_as, a_prefix, s_prefix, a_list, s_list, m_list, pathToDict, rewardsName)
+    rewards_module = constructNumAgentsCost(num_a, num_s, team_time, team_time_id, relation_as, a_prefix, s_prefix, a_list, s_list, m_list, path_to_dict, rewardsName)
     KG_module, rewards_module = replaceIdx(a_list, s_list, m_list, KG_module, rewards_module)
 
     modules = [KG_module, rewards_module]
-    saveMDPfile(modules, mdpFile)
+    saveMDPfile(modules, mdp_file)
 
     # save PRISM files to current directory
     current_dir = str(os.getcwd())
-    MDPpath = current_dir + '/' + mdpFile
-    propertyPath = current_dir + '/' + missionFile
-    outputPath = current_dir + '/' + outputFile    
-    callPRISM(MDPpath, propertyPath, outputPath, PRISMpath)
+    callPRISM(mdp_file, mission_file, output_file, prism_path)
     # change directory back
     os.chdir(current_dir)
-    result = outputResult(outputPath)
+    result = outputResult(output_file)
     
-    outputADV(MDPpath, propertyPath, PRISMpath)
+    outputADV(mdp_file, mission_file, prism_path, int_path)
     # change directory back
     os.chdir(current_dir)
 
     print('\n ===================== PARETO FRONT POINTS ===================== ')
     print(result)
     print('\n ===================== POSSIBLE TEAMS ===================== ')
-    parseADV.parseADVmain(pathToDict, PRISMpath)
+    return parseADV.parseADVmain(path_to_dict, int_path)
 
 
-if __name__== "__main__":
+if __name__ == "__main__":
     # team1 =  {'GOES-17': [{'ABI': {'Cloud type': [0.84130652]} }], \
     #         'GOES-16': [{'ABI': {'Fire temperature': [0.99999966], 'Cloud type': [0.84130652]} }], \
     #         'CARTOSAT-2B': [{'PAN (Cartosat-2A/2B)': {'Land surface topography': [0.95]} }], \
@@ -132,12 +135,13 @@ if __name__== "__main__":
     #         # 'Metop-A': [{'MHS': {'Cloud type': [0.95]}}, {'IASI': {'Land surface temperature': [0.95]}}], \
     #         }
 
-    team2 = {'GOES-17': [{'ABI': {'Cloud type': [0.84130652]} }], \
-    'GOES-16': [{'ABI': {'Fire temperature': [0.99999966], 'Cloud type': [0.84130652]} }], \
-    'Landsat 8':[{'TIRS': {'Land surface topography': [1.]} }], \
-    'KOMPSAT-3A':[{'AEISS-A': {'Land surface topography': [1.]} }], \
-    'Jason-3': [{'POSEIDON-3B Altimeter': {'Land surface topography': [1.]} }], \
-    'Elektro-L N3': [{'DCS': {'Land surface temperature': [0.99899652]} }], \
+    team2 = {
+        'GOES-17': [{'ABI': {'Cloud type': [0.84130652]} }],
+        'GOES-16': [{'ABI': {'Fire temperature': [0.99999966], 'Cloud type': [0.84130652]} }],
+        'Landsat 8':[{'TIRS': {'Land surface topography': [1.], 'Land surface temperature': [0.99899652]} }],
+        'KOMPSAT-3A':[{'AEISS-A': {'Land surface topography': [1.]} }],
+        'Jason-3': [{'POSEIDON-3B Altimeter': {'Land surface topography': [1.]} }],
+        'Kanopus-V-IR': [{'MSU-IK-SR': {'Land surface temperature': [0.99899652]} }],
     }
 
 

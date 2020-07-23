@@ -2,8 +2,8 @@
 
 # PARSE SYNTHESIZED PATH GENERATED FROM PRISM
 
-from extractJSON import findName
-import numpy as np
+from Verification.extractJSON import findName
+import os
 import glob
 
 def line_with_string2(string, fp):
@@ -136,18 +136,21 @@ def calculateReward(actions, testP):
 		Pprev = testP[act]
 	return V
 
-def parseADVmain(pathToDict, PRISMpath):
+def parseADVmain(pathToDict, int_path):
 
-	num = len(glob.glob1(PRISMpath,"*.tra"))     # number of adversary files
+	num = len(glob.glob1(int_path, "*.tra"))     # number of adversary files
 
 	for i in range(num):
 		print('\nadv' + str(i+1) + '.tra')
-		ADVfile = PRISMpath + '/adv' + str(i+1)+'.tra'
-		STAfile = PRISMpath + '/prod.sta'
-		pathStates, totalP, actions, testP = (generatePath(ADVfile,STAfile))
-		print('Path: ',convertAgents(actions, pathToDict, pathStates))
+		adv_file = os.path.join(int_path, f'adv{i+1}.tra')
+		prod_file = os.path.join(int_path, 'prod.sta')
+		pathStates, totalP, actions, testP = (generatePath(adv_file, prod_file))
+		print('Path: ', convertAgents(actions, pathToDict, pathStates))
 		# print('(probability, reward): (', totalP, calculateReward(actions, testP),')')
 		print('Probability: ', totalP)
+
+	return totalP
+
 
 if __name__== "__main__":
 	pathToDict = '../KG_examples/outputs_KGMLN_1/output.dict'

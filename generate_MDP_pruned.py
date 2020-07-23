@@ -3,7 +3,7 @@
 from bidict import bidict
 import numpy as np
 import itertools
-from extractJSON import findName, findID, findTimeBounds
+from Verification.extractJSON import findName, findID, findTimeBounds
 import time # to debug inefficiencies
 
 '''
@@ -485,7 +485,8 @@ def action2str(num_a, num_s, teamTime,teamTimeID,relation_as, row_prefix, col_pr
                         agent = findName(agentID, pathToDict, 'Platform')
                         sensor = findName(sID, pathToDict, 'Sensor') + '__'+ sIdx
                         # find time bounds
-                        timeStr += '(' + sensorTimeBounds(teamTime, agent, sensor) + ') & '
+                        if sensor in teamTime[agent]:
+                            timeStr += '(' + sensorTimeBounds(teamTime, agent, sensor) + ') & '
             if action:
                 act = act + ']'
             timeDict[act] = timeStr[:-3] # remove last ' & '
