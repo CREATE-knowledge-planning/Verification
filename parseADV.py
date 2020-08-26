@@ -142,20 +142,6 @@ def calculateReward(actions, allP):
 		Pprev = allP[act]
 	return V
 
-<<<<<<< HEAD
-def parseADVmain(pathToDict, int_path):
-
-	num = len(glob.glob1(int_path, "*.tra"))     # number of adversary files
-
-	for i in range(num):
-		print('\nadv' + str(i+1) + '.tra')
-		adv_file = os.path.join(int_path, f'adv{i+1}.tra')
-		prod_file = os.path.join(int_path, 'prod.sta')
-		pathStates, totalP, actions, testP = (generatePath(adv_file, prod_file))
-		print('Path: ', convertAgents(actions, pathToDict, pathStates))
-		# print('(probability, reward): (', totalP, calculateReward(actions, testP),')')
-		print('Probability: ', totalP)
-=======
 def parseADVmain(pathToDict, PRISMpath):
 	teams = {}
 
@@ -208,7 +194,6 @@ def paretoPlot(outputPath):
 
 	# function to show the plot 
 	plt.show() 
->>>>>>> master
 
 	return totalP
 
