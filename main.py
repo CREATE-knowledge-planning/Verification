@@ -3,30 +3,33 @@
 # main file to run verification step
 import os
 import random
+from pathlib import Path
 
 from Verification import encodeMission, parseADV
 from Verification.extractJSON import *
 from Verification.generate_MDP_pruned import *
 
 
-def callPRISM(mdp_path, property_path, output_path, prism_path):
+def callPRISM(mdp_path, property_path, output_path, prism_path: Path):
     ''' run PRISM in terminal from PRISMpath (/Applications/prism-4.5-osx64/bin)
     save output log in outputPath
     '''
     os.chdir(prism_path)
-    prism_exec = os.path.join(prism_path, 'prism.bat')
-    command = f'"{prism_exec}" -cuddmaxmem 16g {mdp_path} {property_path} > {output_path}'
+    prism_exec = prism_path / 'prism'
+    command = f'"{prism_exec}" -cuddmaxmem 16g -javamaxmem 4g {mdp_path} {property_path} > {output_path}'
     print(command)
     os.system(command)
 
-def outputADV(MDPpath, propertyPath, PRISMpath, int_path):
+
+def outputADV(MDPpath, propertyPath, prism_path: Path, int_path):
     # save adversary files
-    os.chdir(PRISMpath)
-    prism_exec = os.path.join(PRISMpath, 'prism.bat')
+    os.chdir(prism_path)
+    prism_exec = prism_path / 'prism'
     adv_file = os.path.join(int_path, 'adv.tra')
     prod_file = os.path.join(int_path, 'prod.sta')
     command = f'"{prism_exec}" {MDPpath} {propertyPath} -exportadvmdp {adv_file} -exportprodstates {prod_file}'
     os.system(command)
+
 
 def outputResult(outputPath):
     with open(outputPath) as file:
@@ -60,7 +63,7 @@ def main(team, location):
     path_mission_json = os.path.join(int_path, 'mission.json')
     path_to_dict = os.path.join(int_path, 'output.dict')
     # bin directory of PRISM application
-    prism_path = os.path.join('C:\\', 'Program Files', 'prism-4.6', 'bin')
+    prism_path = Path('/mnt/d/Dropbox/darpa_grant/prism/prism/bin')
 
     # name of files for PRISM (saved to current directory)
     mission_file = os.path.join(int_path, "prop.txt")             # specification
