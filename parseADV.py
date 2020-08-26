@@ -5,6 +5,9 @@
 from Verification.extractJSON import findName
 import os
 import glob
+import main
+import ast
+import matplotlib.pyplot as plt 
 
 def line_with_string2(string, fp):
     ''' find all lines that start with a substring and outputs as list
@@ -32,19 +35,22 @@ def findMaxP(lineList):
 	return maxP, action, nextState    
 
 def generatePath(ADVfile, STAfile): 
-	''' output adversary that PRISM provides as dictionary 
-	{timestep: [set of agents 'a_ID']}
+	''' 
+	given an adversary file, output:
+		pathStates 		the adversary {timestep: [set of agents 'a_ID']}
+		actions 		actions taken in adversary
+		allP  			list of probabilities at each timestep (len(allP) = # of timesteps)
 	'''
 
 	# extract states from adv.tra file
 	with open(ADVfile) as file:
-		# assume 0 is the initial state
+		# assuming 0 is the initial state
 		lines = file.readlines()
 		path = [0]
 		idx = 0
 		action = ''
 		totalP = 1
-		testP = []
+		allP = [] 		
 		actions = []
 		# find path of states 
 		while action != 'N/A':
@@ -55,9 +61,8 @@ def generatePath(ADVfile, STAfile):
 				actions.append(action)
 			idx += 1
 			totalP *= maxP
-			testP.append(maxP)
+			allP.append(maxP)
 		path.pop(0)
-
 	# convert states in adv.tra into agents at each time step
 	pathStates = {}
 	with open(STAfile) as file:
@@ -81,13 +86,12 @@ def generatePath(ADVfile, STAfile):
 					eachTime.add(agent)
 
 			pathStates[t] = eachTime
-	return pathStates, totalP, actions, testP
+	return pathStates, actions, allP
 
-# print('t',totalP, actions)
-
-
-# convert actions into agent names
 def convertAgents(actions, pathToDict, pathStates):
+	'''
+	convert actions in pathStates dictionary into agent names 
+	'''
 	t = 1
 	for act in actions:
 		agents = set()
@@ -108,7 +112,11 @@ def convertAgents(actions, pathToDict, pathStates):
 	return pathStates
 
 def numA(action):
-	# TO_A472S1606__2_A652S1126__1
+    ''' determine number of agents used in an action.
+
+    input: TO_A472S1606__2_A652S1126__1
+    output: 2
+    '''
     if action == 'NOAGENTS':
         num = 0
     else:
@@ -122,20 +130,19 @@ def numA(action):
         num = len(alist)
     return num
 
-
-def calculateReward(actions, testP):
+def calculateReward(actions, allP):
+	''' calculate expected reward given series of actions
+	'''
 	V = 0
-	Pprev =testP[0]
-
+	Pprev =allP[0]
 	for act in range(len(actions)):
-		# V = sum(P*(R+V))
 		R = numA(actions[act])
-		# V += testP[act]*(R)
-		Pprev = np.prod(testP[0:act])
+		Pprev = np.prod(allP[0:act])
 		V = V + R*Pprev
-		Pprev = testP[act]
+		Pprev = allP[act]
 	return V
 
+<<<<<<< HEAD
 def parseADVmain(pathToDict, int_path):
 
 	num = len(glob.glob1(int_path, "*.tra"))     # number of adversary files
@@ -148,13 +155,73 @@ def parseADVmain(pathToDict, int_path):
 		print('Path: ', convertAgents(actions, pathToDict, pathStates))
 		# print('(probability, reward): (', totalP, calculateReward(actions, testP),')')
 		print('Probability: ', totalP)
+=======
+def parseADVmain(pathToDict, PRISMpath):
+	teams = {}
+
+	num = len(glob.glob1(PRISMpath,"*.tra"))     # number of adversary files
+	for i in range(num):
+		# print('\nadv' + str(i+1) + '.tra')
+		ADVfile = PRISMpath + '/adv' + str(i+1)+'.tra'
+		STAfile = PRISMpath + '/prod.sta'
+		pathStates, actions, allP = (generatePath(ADVfile,STAfile))
+		pathStates = convertAgents(actions, pathToDict, pathStates)
+		# print('Path: ',convertAgents(actions, pathToDict, pathStates))
+		prob = np.prod(allP)
+		print(num, allP)
+		R = calculateReward(actions, allP)
+		# print('Probability, Reward: ', np.prod(allP), calculateReward(actions, allP))
+
+		# don't include duplicate adversaries
+		if (prob, R) not in teams.keys():
+			teams[(prob, R)] = {'adv' + str(i+1) + '.tra' : pathStates}
+
+	for team in teams.keys():
+		print('\n', list(teams[team].keys())[0])
+		print('Probability, Reward: ', team)
+		print(list(teams[team].values())[0])
+
+def paretoPlot(outputPath):
+	''' plot Pareto front
+	'''
+	resultLine = main.outputResult(outputPath)
+	resultLine = resultLine.split(':')[1]
+	resultLine = resultLine.split(']')[0][2:]
+	paretoPts = ast.literal_eval(resultLine)
+	paretoPts = sorted(paretoPts, key=lambda x:x[0])
+	x = []
+	y = []
+	for pt in range(len(paretoPts)):
+		y.append(paretoPts[pt][0])
+		x.append(paretoPts[pt][1])
+
+	# plotting the points 
+	plt.plot(x, y, color = 'gray', zorder = 1)  
+	plt.scatter(x, y, marker = '.', color = 'blue',label = 'Possible Team Assignments' , zorder = 2) 
+	
+	plt.xlabel('Cumulative Number of Satellites') 
+	plt.ylabel('Maximum Probability of Mission Success') 
+	plt.yticks(np.arange(0,1.1, 0.1))
+	plt.grid(linestyle=':')
+	plt.legend()
+	plt.legend(loc='lower right', bbox_to_anchor=(1, 0))
+
+	# function to show the plot 
+	plt.show() 
+>>>>>>> master
 
 	return totalP
 
 
 if __name__== "__main__":
 	pathToDict = '../KG_examples/outputs_KGMLN_1/output.dict'
-	PRISMpath = '/Applications/prism-4.5-osx64/bin'
+	PRISMpath = '/Applications/prism-4.6/prism/bin'
+	outputPath = "output1.txt"
+
 	parseADVmain(pathToDict, PRISMpath)
+	print('\n')
+	paretoPlot(outputPath)
+
+
 
 

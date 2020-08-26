@@ -60,6 +60,7 @@ def generateMissionMulti(m_list, missionFile, rewardList, saveFile = False):
 		spec += 'R'+ '{"'+r+'"}'+'min=? [ C ], '
 	spec = spec[:-2] + ')'   # remove extra ', '
 
+
 	if saveFile:
 		# save mission spec as file
 		text_file = open(missionFile, "w")
