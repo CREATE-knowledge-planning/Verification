@@ -5,30 +5,18 @@ import os
 import random
 from pathlib import Path
 
-<<<<<<< HEAD
-from Verification import encodeMission, parseADV
-from Verification.extractJSON import *
-from Verification.generate_MDP_pruned import *
-=======
 import encodeMission
 from extractJSON import *
 from generate_MDP_pruned import *
 import parseADV
->>>>>>> master
 
 
 def callPRISM(mdp_path, property_path, output_path, prism_path: Path):
     ''' run PRISM in terminal from PRISMpath (/Applications/prism-4.5-osx64/bin)
     save output log in outputPath
     '''
-<<<<<<< HEAD
-    os.chdir(prism_path)
-    prism_exec = prism_path / 'prism'
-    command = f'"{prism_exec}" -cuddmaxmem 16g -javamaxmem 4g {mdp_path} {property_path} > {output_path}'
-=======
     os.chdir(PRISMpath)
     command = './prism ' + '-cuddmaxmem 4g ' + MDPpath + ' ' + propertyPath + ' > ' + outputPath
->>>>>>> master
     print(command)
     os.system(command)
 
@@ -67,22 +55,6 @@ def constructTeam(team):
             team[a][i][s+'__'+str(num)] = team[a][i].pop(s)     # replace sensor with sensor__num
             allsensors.append(s)
 
-<<<<<<< HEAD
-
-def main(team, location):
-    # data from knowledge graph
-    int_path = os.path.join(os.getcwd(), "int_files")
-    path_time_json = os.path.join(int_path, 'accesses', location + '.json')
-    path_mission_json = os.path.join(int_path, 'mission.json')
-    path_to_dict = os.path.join(int_path, 'output.dict')
-    # bin directory of PRISM application
-    prism_path = Path('/mnt/d/Dropbox/darpa_grant/prism/prism/bin')
-
-    # name of files for PRISM (saved to current directory)
-    mission_file = os.path.join(int_path, "prop.txt")             # specification
-    mdp_file = os.path.join(int_path, "KG_MDP.txt")                   # MDP
-    output_file = os.path.join(int_path, "output.txt")            # output log
-=======
 def checkTime(team,teamTimeID, m_list, pathToDict, s_prefix, m_prefix):
     '''
     which measurements are free during what time intervals given a team
@@ -125,7 +97,6 @@ def main(team):
     missionFile = "prop1.txt"             # specification
     mdpFile = "KG_MDP1.txt"                   # MDP
     outputFile = "output1.txt"            # output log
->>>>>>> master
 
     # res1 = [random.randrange(0, 1000)/1000. for i in range(168)] 
     # res2 =     [random.randrange(0, 1000)/1000. for i in range(168)] 
@@ -134,15 +105,6 @@ def main(team):
     #     'Metop-A': [{'IASI': {'Land surface temperature': res2}}]}
 
     constructTeam(team)
-<<<<<<< HEAD
-    target = findTarget(path_mission_json)
-    team_time = findTimeBounds(team, location, path_time_json)
-    a_prefix, s_prefix, m_prefix = 'a', 's', 'm'
-    team_time_id = generate_teamTimeID(path_to_dict, team_time, a_prefix, s_prefix)
-    a_list, s_list, m_list = generateASMlists(team, path_to_dict, a_prefix, s_prefix, m_prefix)
-    num_a, num_s, num_m = len(a_list), len(s_list), len(m_list)
-    num_s = len(s_list)
-=======
     target = findTarget(pathMissionJSON)
     teamTime = findTimeBounds(team, target, pathTimeJSON)
     
@@ -158,7 +120,6 @@ def main(team):
     print('# of agents, sensors, meas: ',numASM)
 
     checkTime(team, teamTimeID, m_list, pathToDict, s_prefix, m_prefix)
->>>>>>> master
 
     # mission for PRISM
     rewardList = ['numAgents']
