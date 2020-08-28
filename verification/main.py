@@ -4,47 +4,76 @@
 import os
 import random
 from pathlib import Path
+import subprocess
 
-import encodeMission
-from extractJSON import *
-from generate_MDP_pruned import *
-import parseADV
+import verification.encodeMission
+from verification.extractJSON import *
+from verification.generate_MDP_pruned import *
+import verification.parseADV
 
 
-def callPRISM(mdp_path, property_path, output_path, prism_path: Path):
+def call_prism(mdp_path: Path, property_path: Path, output_path: Path, prism_path: Path, wsl=False):
     ''' run PRISM in terminal from PRISMpath (/Applications/prism-4.5-osx64/bin)
     save output log in outputPath
     '''
-    os.chdir(PRISMpath)
-    command = './prism ' + '-cuddmaxmem 4g ' + MDPpath + ' ' + propertyPath + ' > ' + outputPath
-    print(command)
-    os.system(command)
-
-
-def outputADV(MDPpath, propertyPath, prism_path: Path, int_path):
-    # save adversary files
+    current_path = Path(".").resolve()
     os.chdir(prism_path)
-    prism_exec = prism_path / 'prism'
-    adv_file = os.path.join(int_path, 'adv.tra')
-    prod_file = os.path.join(int_path, 'prod.sta')
-    command = f'"{prism_exec}" {MDPpath} {propertyPath} -exportadvmdp {adv_file} -exportprodstates {prod_file}'
-    os.system(command)
+    prism_bin = prism_path / 'prism'
+    arguments = []
+    if wsl:
+        # First, turn all relevant paths into wsl paths
+        prism_wsl_path = subprocess.run(['wsl', 'wslpath', prism_bin.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
+        mdp_wsl_path = subprocess.run(['wsl', 'wslpath', mdp_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
+        property_wsl_path = subprocess.run(['wsl', 'wslpath', property_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
+        output_wsl_path = subprocess.run(['wsl', 'wslpath', output_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
+        arguments = ['wsl', prism_wsl_path, '-cuddmaxmem', '4g', mdp_wsl_path, property_wsl_path, ">", output_wsl_path]
+    else:
+        arguments = [str(prism_bin), '-cuddmaxmem', '4g', str(mdp_path), str(property_path), '>', str(output_path)]
+    popen = subprocess.run(arguments, universal_newlines=True, encoding='utf-8', capture_output=True)
+    print(popen.stdout)
+    os.chdir(current_path)
 
 
-def outputResult(outputPath):
-    with open(outputPath) as file:
-        resultLine = line_with_string2('Result: ', file)
+def output_adv(mdp_path: Path, property_path: Path, prism_path: Path, simulation_path: Path, wsl=False):
+    # save adversary files
+    current_path = Path(".").resolve()
+    prism_bin = prism_path / 'prism'
+    adv_file = simulation_path / 'adv.tra'
+    adv_file = adv_file.resolve()
+    prod_file = simulation_path / 'prod.sta'
+    prod_file = prod_file.resolve()
+    os.chdir(prism_path)
+    arguments = []
+
+    if wsl:
+        # First, turn all relevant paths into wsl paths
+        prism_wsl_path = subprocess.run(['wsl', 'wslpath', prism_bin.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
+        mdp_wsl_path = subprocess.run(['wsl', 'wslpath', mdp_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
+        property_wsl_path = subprocess.run(['wsl', 'wslpath', property_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
+        adv_file_wsl_path = subprocess.run(['wsl', 'wslpath', adv_file.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
+        prod_file_wsl_path = subprocess.run(['wsl', 'wslpath', prod_file.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
+        arguments = ['wsl', prism_wsl_path, mdp_wsl_path, property_wsl_path, '-exportadvmdp', adv_file_wsl_path, '-exportprodstates', prod_file_wsl_path]
+    else:
+        arguments = [str(prism_bin), str(mdp_path), str(property_path), '-exportadvmdp', str(adv_file), '-exportprodstates', str(prod_file)]
+    popen = subprocess.run(arguments, universal_newlines=True, encoding='utf-8', capture_output=True)
+    print(popen.stdout)
+    os.chdir(current_path)
+
+
+def output_result(output_path):
+    with open(output_path) as file:
+        result_line = line_with_string2('Result: ', file)
     try:
-        resultList = resultLine.split(' ')
+        result_list = result_line.split(' ')
         # print(resultLine)
     except:
-        raise ValueError('Error occurred when running PRISM. See ' + outputPath + ' for details.')
+        raise ValueError('Error occurred when running PRISM. See ' + str(output_path) + ' for details.')
         return
     # return float(resultList[1])
-    return resultLine
+    return result_line
 
 
-def constructTeam(team):
+def construct_team(team: dict):
     ''' add unique IDs to sensors in a team '__<num>'
     '''
     allsensors = []
@@ -54,8 +83,26 @@ def constructTeam(team):
             num = allsensors.count(s)+1
             team[a][i][s+'__'+str(num)] = team[a][i].pop(s)     # replace sensor with sensor__num
             allsensors.append(s)
+        
 
-def checkTime(team,teamTimeID, m_list, pathToDict, s_prefix, m_prefix):
+def construct_team_from_list(satellite_list):
+    ''' add unique IDs to sensors in a team '__<num>'
+    '''
+    allsensors = []
+    new_satellite_list = []
+    for satellite in satellite_list:
+        satellite["sensors"] = [sensor for sensor in satellite["sensors"] if sensor["characteristics"]]
+        new_satellite = copy.deepcopy(satellite)
+        for idx, sensor in enumerate(satellite["sensors"]):
+            sensor_name = sensor["name"]   # sensor
+            num = allsensors.count(sensor_name) + 1
+            new_satellite["sensors"][idx]["name"] = sensor_name + '__' + str(num)
+            allsensors.append(sensor_name)
+        new_satellite_list.append(new_satellite)
+    return new_satellite_list
+
+
+def check_time(team, team_time_id, m_list, entity_dict, s_prefix, m_prefix):
     '''
     which measurements are free during what time intervals given a team
     output dictionary of {m: time intervals}
@@ -63,29 +110,28 @@ def checkTime(team,teamTimeID, m_list, pathToDict, s_prefix, m_prefix):
     # from extractJSON
 
     # reconstruct teamTime ID so that it's only {sensor: [time interval]}
-    newTimeDict = {}
-    for a in teamTimeID.keys():
-        for s in teamTimeID[a]:
-            newTimeDict[s] = teamTimeID[a][s]
+    new_time_dict = {}
+    for agent in team_time_id:
+        for sensor in agent["sensors"]:
+            new_time_dict[sensor["name"]] = sensor
 
     check = {}
-    for m in m_list:
-        check[m] = []
+    for measurement in m_list:
+        check[measurement] = []
 
-    sDict = create_smDict(team, pathToDict, s_prefix, m_prefix) # {s1: [[m1, P1]], s2: [[m2, P2]]], ...}}
-    for s in sDict.keys():
-        for mp in sDict[s]:
-            meas = mp[0]
-            a= newTimeDict[s]
-            check[meas]= sorted(check[meas] + a, key=lambda x: x[0])
+    sensor_dict = create_sm_dict(team, entity_dict, s_prefix, m_prefix) # {s1: [[m1, P1]], s2: [[m2, P2]]], ...}}
+    for sensor_name in sensor_dict.keys():
+        for measurement_info in sensor_dict[sensor_name]:
+            measurement_name = measurement_info[0]
+            sensor = new_time_dict[sensor_name]
+            check[measurement_name] = sorted(check[measurement_name] + sensor["times"], key=lambda x: x[0])
     # print(check)
 
 
 def main(team):
-   
     # data from knowledge graph 
-    pathMissionJSON = 'mission.json'
-    pathTimeJSON = 'accesses.json'
+    path_mission_json = 'mission.json'
+    path_time_json = 'accesses.json'
     pathToDict = '../KG_examples/outputs_KGMLN_1/output.dict'
     ## FOR MOUNT YASUR MISSION
     # pathTimeJSON = 'test_antoni/MountYasur.json'
@@ -104,22 +150,22 @@ def main(team):
     # team = {'GOES-17': [{'ABI': {'Cloud type': res1}    }], \
     #     'Metop-A': [{'IASI': {'Land surface temperature': res2}}]}
 
-    constructTeam(team)
-    target = findTarget(pathMissionJSON)
-    teamTime = findTimeBounds(team, target, pathTimeJSON)
+    construct_team(team)
+    target = findTarget(path_mission_json)
+    teamTime = find_time_bounds(team, target, path_time_json)
     
     prefixList = ['a', 's', 'm']
     a_prefix, s_prefix, m_prefix = prefixList
-    teamTimeID = generate_teamTimeID(pathToDict, teamTime, a_prefix, s_prefix)
+    teamTimeID = generate_team_time_id(pathToDict, teamTime, a_prefix, s_prefix)
     
-    a_list, s_list, m_list = generateASMlists(team, pathToDict, a_prefix, s_prefix, m_prefix)
+    a_list, s_list, m_list = generate_asm_lists(team, pathToDict, a_prefix, s_prefix, m_prefix)
     numASM = [len(a_list), len(s_list), len(m_list)]
     num_a, num_s, num_m = numASM
 
     rewardList = ['numAgents']
     print('# of agents, sensors, meas: ',numASM)
 
-    checkTime(team, teamTimeID, m_list, pathToDict, s_prefix, m_prefix)
+    check_time(team, teamTimeID, m_list, pathToDict, s_prefix, m_prefix)
 
     # mission for PRISM
     rewardList = ['numAgents']
@@ -128,36 +174,36 @@ def main(team):
     missionPCTL = encodeMission.generateMissionMulti(m_list, mission_file, rewardList, saveFile = True)
     
     # relationship matrices
-    relation_as = construct_asMatrix(team, path_to_dict, num_a, num_s, a_prefix, s_prefix, a_list, s_list)
-    relation_ms = construct_msMatrix(team, path_to_dict, num_m, num_s, m_prefix, s_prefix, m_list, s_list)
+    relation_as = construct_as_matrix(team, path_to_dict, num_a, num_s, a_prefix, s_prefix, a_list, s_list)
+    relation_ms = construct_ms_matrix(team, path_to_dict, num_m, num_s, m_prefix, s_prefix, m_list, s_list)
     
-    relation_ms_no, probDict = notMeasMat(team, path_to_dict, relation_ms, num_m, num_s,  m_prefix, s_prefix, m_list, s_list)
+    relation_ms_no, probDict = not_meas_mat(team, path_to_dict, relation_ms, num_m, num_s,  m_prefix, s_prefix, m_list, s_list)
 
     # modules for PRISM MDP
-    allStates = allStates_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID)
+    allStates = all_states_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID)
     num_states = len(allStates)    # total number of states
 
-    allStates_dict = allStates_asm(numASM, relation_as,relation_ms_no, allStates, probDict)
+    allStates_dict = all_states_asm(numASM, relation_as,relation_ms_no, allStates, probDict)
     actions, timeDict = action2str(num_a, num_s, teamTime, allStates, a_prefix, s_prefix, a_list, s_list, pathToDict)
 
-    KG_module = constructKGModule(actions, timeDict, allStates_dict, numASM, prefixList, a_list, s_list, teamTime, relation_as, relation_ms,probDict,pathToDict,missionLength)
+    KG_module = construct_kg_module(actions, timeDict, allStates_dict, numASM, prefixList, a_list, s_list, teamTime, relation_as, relation_ms,probDict,pathToDict,missionLength)
 
     rewardsName = rewardList[0]    # criteria we care about
-    rewards_module1 = constructNumAgentsCost(num_a, num_s, teamTime, allStates, a_prefix, s_prefix, a_list, s_list, m_list, pathToDict, rewardsName)
+    rewards_module1 = construct_num_agents_cost(num_a, num_s, teamTime, allStates, a_prefix, s_prefix, a_list, s_list, m_list, pathToDict, rewardsName)
     # rewards_module2 = constructEachPModule(num_a, num_s, num_m,a_list, s_list,teamTime, teamTimeID, relation_as, relation_ms_no,a_prefix, s_prefix, m_prefix, probDict, pathToDict)
-    KG_module, rewards_module1 = replaceIdx(a_list, s_list, m_list, KG_module, rewards_module1)
+    KG_module, rewards_module1 = replace_idx(a_list, s_list, m_list, KG_module, rewards_module1)
 
     modules = [KG_module, rewards_module1]
-    saveMDPfile(modules, mdpFile)
+    save_mdp_file(modules, mdpFile)
 
     # save PRISM files to current directory
     current_dir = str(os.getcwd())
-    callPRISM(mdp_file, mission_file, output_file, prism_path)
+    call_prism(mdp_file, mission_file, output_file, prism_path)
     # change directory back
     os.chdir(current_dir)
-    result = outputResult(output_file)
+    result = output_result(output_file)
     
-    outputADV(mdp_file, mission_file, prism_path, int_path)
+    output_adv(mdp_file, mission_file, prism_path, int_path)
     # change directory back
     os.chdir(current_dir)
 

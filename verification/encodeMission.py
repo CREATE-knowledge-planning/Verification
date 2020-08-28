@@ -1,37 +1,30 @@
 #!/usr/bin/env python
 
-import json
 import datetime as dt
-from dateutil.relativedelta import relativedelta
+import dateutil
 import math
 
-from Verification import extractJSON
 
-def findMissionLength(pathMissionJSON):
+def find_mission_length(mission_info):
 	'''finding mission length, assuming any and all observation durations = mission duration
 	units of mission length are in seconds (decimals are rounded)'''
-	with  open(pathMissionJSON, 'r',  encoding='latin-1') as file:
-		missionData = json.load(file) 
-		t_init = missionData['observations'][0]['startDate'].split('.')[0]     # ignore fractional part of seconds for now
-		t_final = missionData['observations'][0]['endDate'].split('.')[0]
+	date_init = dateutil.parser.isoparse(mission_info['observations'][0]['startDate'].iso_format())    # ignore fractional part of seconds for now
+	date_final = dateutil.parser.isoparse(mission_info['observations'][0]['endDate'].iso_format())
+	
+	delta_t = date_final - date_init
+	delta_sec = delta_t.total_seconds()
 
-		date_format = "%Y-%m-%dT%H:%M:%S"
-		date_init = dt.datetime.strptime(t_init, date_format)
-		date_final = dt.datetime.strptime(t_final, date_format)
-		
-		deltaT = date_final - date_init
-		deltaSec = deltaT.total_seconds()
+	# include fractional part of seconds
+	delta_subsec = 1e-6*delta_t.microseconds
+	
+	delta_sec += round(delta_subsec)
+	
+	return math.ceil(delta_sec/(3600.*24))     # rounding up, dividing to discretize timesteps into days
 
-		# include fractional part of seconds
-		deltaSubSec = 1e-9*(int(missionData['observations'][0]['endDate'].split('.')[1]) - int(missionData['observations'][0]['startDate'].split('.')[1]))
-		
-		deltaSec += round(deltaSubSec)
-		
-		return math.ceil(deltaSec/(3600.*24))     # rounding up, dividing to discretize timesteps into days
 
 def generateMissionPCTL(pathMissionJSON, m_list, missionFile, saveFile = False):
 	'''Pmax=?[(true U <= 10 ((m1=1) & (m2=1)))]'''
-	missionLength = findMissionLength(pathMissionJSON)
+	missionLength = find_mission_length(pathMissionJSON)
 	spec = "Pmax=?[!(true U <= " + str(missionLength) + ' !('
 
 	for m in m_list:
@@ -46,7 +39,7 @@ def generateMissionPCTL(pathMissionJSON, m_list, missionFile, saveFile = False):
 		text_file.close()
 	return spec
 
-def generateMissionMulti(m_list, missionFile, rewardList, saveFile = False):
+def generate_mission_multi(m_list, mission_file, reward_list, save_file=False):
 	'''multi(Pmax=? [G (m1=1 & m2=1)], R{reward1}min=? [ C ])'''
 
 	spec = 'multi(Pmax=? [G ('
@@ -56,14 +49,13 @@ def generateMissionMulti(m_list, missionFile, rewardList, saveFile = False):
 	spec = spec[:-3]    # remove extra ' & '
 	spec += ')], '
 
-	for r in rewardList:
+	for r in reward_list:
 		spec += 'R'+ '{"'+r+'"}'+'min=? [ C ], '
 	spec = spec[:-2] + ')'   # remove extra ', '
 
 
-	if saveFile:
+	if save_file:
 		# save mission spec as file
-		text_file = open(missionFile, "w")
-		text_file.write(spec)
-		text_file.close()
+		with mission_file.open('w') as text_file:
+			text_file.write(spec)
 	return spec

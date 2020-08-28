@@ -2,12 +2,15 @@
 
 # PARSE SYNTHESIZED PATH GENERATED FROM PRISM
 
-from Verification.extractJSON import findName
+from pathlib import Path
+from verification.extractJSON import find_name
 import os
 import glob
 import main
 import ast
 import matplotlib.pyplot as plt 
+import numpy as np
+
 
 def line_with_string2(string, fp):
     ''' find all lines that start with a substring and outputs as list
@@ -17,6 +20,7 @@ def line_with_string2(string, fp):
         if line.startswith(string):
         	newstring.append(line.rstrip())
     return newstring
+
 
 def findMaxP(lineList):
 	''' given list of lines, find maximum probability and corresponding action
@@ -34,7 +38,8 @@ def findMaxP(lineList):
 				action = 'N/A'
 	return maxP, action, nextState    
 
-def generatePath(ADVfile, STAfile): 
+
+def generate_path(adv_file_path, sta_file_path): 
 	''' 
 	given an adversary file, output:
 		pathStates 		the adversary {timestep: [set of agents 'a_ID']}
@@ -43,9 +48,9 @@ def generatePath(ADVfile, STAfile):
 	'''
 
 	# extract states from adv.tra file
-	with open(ADVfile) as file:
+	with adv_file_path.open() as adv_file:
 		# assuming 0 is the initial state
-		lines = file.readlines()
+		lines = adv_file.readlines()
 		path = [0]
 		idx = 0
 		action = ''
@@ -65,8 +70,8 @@ def generatePath(ADVfile, STAfile):
 		path.pop(0)
 	# convert states in adv.tra into agents at each time step
 	pathStates = {}
-	with open(STAfile) as file:
-		lines = file.readlines()
+	with open(sta_file_path) as sta_file:
+		lines = sta_file.readlines()
 		stateList = lines[0].split(',')
 		stateList = [ x for x in stateList if x[0] == 'a' ]    # only care about agent-sensor states 
 		
@@ -88,7 +93,8 @@ def generatePath(ADVfile, STAfile):
 			pathStates[t] = eachTime
 	return pathStates, actions, allP
 
-def convertAgents(actions, pathToDict, pathStates):
+
+def convert_agents(actions, inv_entity_dict, pathStates):
 	'''
 	convert actions in pathStates dictionary into agent names 
 	'''
@@ -103,13 +109,14 @@ def convertAgents(actions, pathToDict, pathStates):
 					new = a.split('S')
 					new = [idx for idx in new if idx[0] == 'A']
 					# print(new)
-					agent = findName(new[0][1:], pathToDict, 'Platform')
+					agent = find_name(new[0][1:], inv_entity_dict, 'Platform')
 					# print(agent)
 					# act_new += new
 					agents.add(agent)
 		pathStates[t] = agents
 		t += 1
 	return pathStates
+
 
 def numA(action):
     ''' determine number of agents used in an action.
@@ -130,42 +137,45 @@ def numA(action):
         num = len(alist)
     return num
 
-def calculateReward(actions, allP):
+
+def calculate_reward(actions, all_p):
 	''' calculate expected reward given series of actions
 	'''
 	V = 0
-	Pprev =allP[0]
+	Pprev = all_p[0]
 	for act in range(len(actions)):
 		R = numA(actions[act])
-		Pprev = np.prod(allP[0:act])
+		Pprev = np.prod(all_p[0:act])
 		V = V + R*Pprev
-		Pprev = allP[act]
+		Pprev = all_p[act]
 	return V
 
-def parseADVmain(pathToDict, PRISMpath):
-	teams = {}
 
-	num = len(glob.glob1(PRISMpath,"*.tra"))     # number of adversary files
-	for i in range(num):
+def parse_adv_main(inv_entity_dict, simulation_path: Path):
+	teams = {}
+	num_tra_files = len(list(simulation_path.glob("*.tra")))
+	for adv_file_path in simulation_path.glob("*.tra"):
 		# print('\nadv' + str(i+1) + '.tra')
-		ADVfile = PRISMpath + '/adv' + str(i+1)+'.tra'
-		STAfile = PRISMpath + '/prod.sta'
-		pathStates, actions, allP = (generatePath(ADVfile,STAfile))
-		pathStates = convertAgents(actions, pathToDict, pathStates)
+		sta_file_path = simulation_path  / 'prod.sta'
+		path_states, actions, all_p = generate_path(adv_file_path, sta_file_path)
+		path_states = convert_agents(actions, inv_entity_dict, path_states)
 		# print('Path: ',convertAgents(actions, pathToDict, pathStates))
-		prob = np.prod(allP)
-		print(num, allP)
-		R = calculateReward(actions, allP)
+		prob = np.prod(all_p)
+		print(num_tra_files, all_p)
+		reward = calculate_reward(actions, all_p)
 		# print('Probability, Reward: ', np.prod(allP), calculateReward(actions, allP))
 
 		# don't include duplicate adversaries
-		if (prob, R) not in teams.keys():
-			teams[(prob, R)] = {'adv' + str(i+1) + '.tra' : pathStates}
+		if (prob, reward) not in teams.keys():
+			teams[(prob, reward)] = {adv_file_path.name : path_states}
 
 	for team in teams.keys():
 		print('\n', list(teams[team].keys())[0])
 		print('Probability, Reward: ', team)
 		print(list(teams[team].values())[0])
+	
+	return teams
+
 
 def paretoPlot(outputPath):
 	''' plot Pareto front
@@ -203,7 +213,7 @@ if __name__== "__main__":
 	PRISMpath = '/Applications/prism-4.6/prism/bin'
 	outputPath = "output1.txt"
 
-	parseADVmain(pathToDict, PRISMpath)
+	parse_adv_main(pathToDict, PRISMpath)
 	print('\n')
 	paretoPlot(outputPath)
 
