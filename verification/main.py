@@ -26,11 +26,13 @@ def call_prism(mdp_path: Path, property_path: Path, output_path: Path, prism_pat
         mdp_wsl_path = subprocess.run(['wsl', 'wslpath', mdp_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
         property_wsl_path = subprocess.run(['wsl', 'wslpath', property_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
         output_wsl_path = subprocess.run(['wsl', 'wslpath', output_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
-        arguments = ['wsl', prism_wsl_path, '-cuddmaxmem', '4g', mdp_wsl_path, property_wsl_path, ">", output_wsl_path]
+        arguments = ['wsl', prism_wsl_path, '-cuddmaxmem', '4g', mdp_wsl_path, property_wsl_path]
     else:
-        arguments = [str(prism_bin), '-cuddmaxmem', '4g', str(mdp_path), str(property_path), '>', str(output_path)]
-    popen = subprocess.run(arguments, universal_newlines=True, encoding='utf-8', capture_output=True)
+        arguments = [str(prism_bin), '-cuddmaxmem', '4g', str(mdp_path), str(property_path)]
+    popen = subprocess.run(arguments, text=True, encoding='utf-8', capture_output=True)
     print(popen.stdout)
+    with output_path.open("w", encoding="utf-8") as output_file:
+        output_file.write(popen.stdout)
     os.chdir(current_path)
 
 
