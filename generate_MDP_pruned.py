@@ -3,7 +3,7 @@
 from bidict import bidict
 import numpy as np
 import itertools
-from extractJSON import findName, findID, findTimeBounds
+from extractJSON import find_name, find_id, find_time_bounds
 import time # to debug inefficiencies
 
 '''
@@ -34,7 +34,7 @@ def visibilityOverlap(range1, range2):
                 return True
     return False
 
-def allStates_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID):
+def all_states_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID):
     '''generates all possible a_s matrix states ASSUMING AGENTS CAN CHOOSE WHICH OF ITS SENSORS ARE ON OR OFF'''
     # states_array = [np.zeros((num_a, num_s))]   # include "no agent" state
     # a_list = ['a355', 'a368', 'a390', 'a471', 'a472', 'a560']
@@ -92,7 +92,7 @@ def allStates_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID):
     # print('# of states: ',len(states_array))
     return states_array
 
-def allStates_as2(num_a, num_s, relation_as):
+def all_states_as2(num_a, num_s, relation_as):
     '''generates all possible a_s matrix states ASSUMING AGENTS CANNOT CHOOSE WHICH OF ITS SENSORS ARE ON OR OFF'''
     states_array = [np.zeros((num_a, num_s))]
     # generate all combos of a (for num_a = 2: [0 0]', [0,1]', [1,0]', [1,1]'')
@@ -166,7 +166,7 @@ def measZero_all(numASM, relation_ms_no, allStates, probDict):
 
     num_a, num_s, num_m = numASM
     prob_m00_dict = {}
-    # allStates = allStates_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID)
+    # allStates = all_states_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID)
     for state in allStates:
         #state.setflags(write = False)
         # flatten state and make it a tuple
@@ -222,22 +222,40 @@ def mProb_all(numASM, relation_as, current_as, measZero_dict, probDict):
             P = '*0'
         elif eval(P[1:]) == 1:
             P = '*1'
-        mProb_dict[tuple(combo)] = P[1:]      # don't include the first '*'
+        if eval(P[1:]) != 0:
+            mProb_dict[tuple(combo)] = eval(P[1:])      # don't include the first '*'
     return mProb_dict
 
-def allStates_asm(numASM, relation_as,relation_ms_no, allStates, probDict):
+def all_states_asm(numASM, relation_as,relation_ms_no, allStates, probDict):
     '''given all a_s states and m states, generate a nested dictionary {state a_s:{state m: probability}}'''
     num_a, num_s, num_m = numASM
     allStates_dict = {}
     measZero_dict = measZero_all(numASM, relation_ms_no, allStates, probDict)
-    # allStates = allStates_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID)
+    # allStates = all_states_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID)
 
+    # for state in allStates:
+    #     mProb_dict = mProb_all(numASM, relation_as, state, measZero_dict, probDict)
+    #     state_as = tuple(state.flatten())
+    #     allStates_dict[state_as] = mProb_dict
+    # print(probDict)
+
+    # for p in list(probDict.keys()):
+    #     exec(p + '=' + str(probDict[p][0]))
+
+    allStates_new = []
     for state in allStates:
         mProb_dict = mProb_all(numASM, relation_as, state, measZero_dict, probDict)
         state_as = tuple(state.flatten())
-        allStates_dict[state_as] = mProb_dict
+        # for val in mProb_dict.values():
+        # #     print(val, type(val), eval(val))
 
-    return allStates_dict
+        if (1,)*num_m in mProb_dict:
+        #     # if mProb_dict[(1,)*num_m] > 0.65:
+            allStates_dict[state_as] = mProb_dict
+            allStates_new.append(state)
+        # allStates_dict[state_as] = mProb_dict
+        # allStates_new.append(state)
+    return allStates_new, allStates_dict
 
  ###############################################################
  ################## FUNCTIONS FOR PRISM SYNTAX ################# 
@@ -264,7 +282,7 @@ def names_m(num_m, m_prefix):
         allStates.append(state)          
     return allStates 
 
-def init_states(numASM, prefixList, relation_as, a_list, s_list, teamTime, pathToDict):
+def init_states(numASM, prefixList, relation_as, a_list, s_list, teamTime, pathToDict, t):
     ''' string of initialized states, assuming we always initialize with everything = 0 (all m_i = 1)'''
 
     # find which sensors are initially visible
@@ -275,9 +293,9 @@ def init_states(numASM, prefixList, relation_as, a_list, s_list, teamTime, pathT
     for a in list(teamTime.keys()):
         for s in list(teamTime[a].keys()):
             if teamTime[a][s][0][0] == 0:      # if first element of time bounds = 0 (visible at beginning)
-                vis = findID(s, pathToDict, col_prefix, sensor = True)
+                vis = find_id(s, pathToDict, col_prefix, sensor = True)
                 visIdx = s_list.index(vis)+1
-                agent = findID(a, pathToDict, row_prefix)
+                agent = find_id(a, pathToDict, row_prefix)
                 agentIdx = a_list.index(agent)+1
                 vis_list.append(row_prefix + str(agentIdx) + '_'+col_prefix + str(visIdx))
 
@@ -298,7 +316,7 @@ def init_states(numASM, prefixList, relation_as, a_list, s_list, teamTime, pathT
 
     for m in range(len(states_m)):
         init_str += states_m[m] + ": [0..1] init 1; \n"    # assuming we always start with measurements = 1
-    init_str += 't: [0..finalTime] init 0; \n'
+    init_str += 't: ['+str(t)+'..finalTime] init ' + str(t) + '; \n'
     # init_str += 'numA: [0..'+ str(num_a) + '] init 0; \n'
     return init_str
 
@@ -330,7 +348,7 @@ def allCurrent2str_as(num_a, num_s, current_as, row_prefix, col_prefix,relation_
              | ((a1_s1 = 1) & (a1_s2 = 0) & (a1_s3 = 0) & (a2_s1 = 0) & (a2_s2 = 0) & (a2_s3 = 1)) 
              | ...
     NOT SURE IF I NEED THIS FUNCTION (CAN I JUST HAVE "TRUE"?)'''
-    allStates = allStates_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID)
+    allStates = all_states_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID)
     state_str = ""
     for state in range(len(allStates)):
         assignment = current2str_as(num_a, num_s, allStates[state], row_prefix, col_prefix)
@@ -393,7 +411,7 @@ def allStates_next2str(numASM, a_list, s_list, relation_as,relation_ms_no, row_p
 
     '''
     num_a, num_s, num_m = numASM
-    allStates_dict = allStates_asm(numASM, a_list, s_list, relation_as,relation_ms_no, teamTimeID, probDict)
+    allStates_dict = all_states_asm(numASM, a_list, s_list, relation_as,relation_ms_no, teamTimeID, probDict)
     # {state a_s:{state m: probability}}
 
     m_array = next2str_m (num_m, m_prefix)
@@ -447,13 +465,32 @@ def sensorTimeBounds(teamTime, agent, sensor):
     timeStr = timeStr[:-3]    # remove extra ' | '
     return timeStr
 
+# def sensorTimeBounds_single(teamTime, agent, sensor):
+#     ''' for each agent's sensor, construct visibility time constraints in PRISM syntax
+#     example:
+#     (((t >= 1) & t <= 5)) | ((t >= 10) & t <= 20))) & t < totalTime
+
+#     for parallelized method, we only need t >= timestep & t < totalTime
+#     '''
+#     timeStr = ''
+#     # for s in team[agent].keys():
+#     for bounds in teamTime[agent][sensor]:      # for each time bound
+#         if bounds[0] == t:
+#             timeStr += '(t>= '
+#             break
+#     #     timeStr += '((t >= ' + str(bounds[0]) + ') & (t < ' + str(bounds[1]) + ')) | '
+
+
+#     # timeStr = timeStr[:-3]    # remove extra ' | '
+#     return timeStr
+
 def action2str(num_a, num_s, teamTime, allStates, row_prefix, col_prefix, a_list, s_list, pathToDict, action = True, stateDict = False):
     ''' write actions for each transition to a state. returns a list: ['TO_<STATE1>', 'TO_STATE2']
     where <state1> could be something like "A1S1" for [[1 0 0 ], [0 0 0]] or "A1S1_A2S2" for [[1 0 0 ], [0 1 0]]
     If action = false, then we remove the "TO_" from each state
     If time = True, then we output the time bounds for each state: {'A1S1': '(((t >= 1) & t <= 5)) | ((t >= 10) & t <= 20)))'}
     '''
-    # allStates = allStates_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID)
+    # allStates = all_states_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID)
     actions = []
     timeDict = {}
     act2matDict = {}
@@ -489,13 +526,17 @@ def action2str(num_a, num_s, teamTime, allStates, row_prefix, col_prefix, a_list
                         sID, sIdx = sensorID.split('__')
                         # convert ids to agent and sensor names
                         # pathToDict = '../KG_examples/outputs_KGMLN_1/output.dict'
-                        agent = findName(agentID, pathToDict, 'Platform')
-                        sensor = findName(sID, pathToDict, 'Sensor') + '__'+ sIdx
-                        # find time bounds
-                        timeStr += '(' + sensorTimeBounds(teamTime, agent, sensor) + ') & '
+                        agent = find_name(agentID, pathToDict, 'Platform')
+                        sensor = find_name(sID, pathToDict, 'Sensor') + '__'+ sIdx
+
+                        if timeStr == '':
+                             timeStr += sensorTimeBounds(teamTime, agent, sensor)
+                        # find time bounds (need for unparallelized version)
+                        # timeStr += '(' + sensorTimeBounds(teamTime, agent, sensor) + ') & '
             if action:
                 act = act + ']'
-            timeDict[act] = timeStr[:-3] # remove last ' & '
+            # timeDict[act] = timeStr[:-3] # remove last ' & ' (need for unparallelized version)
+            timeDict[act] = timeStr
             act2matDict[tuple(state.flatten())] = act
 
         actions.append(act)
@@ -519,9 +560,9 @@ def init_vis(num_a, num_s, teamTime,relation_as, row_prefix, col_prefix, a_list,
     for a in list(teamTime.keys()):
         for s in list(teamTime[a].keys()):
             if teamTime[a][s][0][0] == 0:      # if first element of time bounds = 0 (visible at beginning)
-                vis = findID(s, pathToDict, col_prefix, sensor = True)
+                vis = find_id(s, pathToDict, col_prefix, sensor = True)
                 visIdx = s_list.index(vis)+1
-                agent = findID(a, pathToDict, row_prefix)
+                agent = find_id(a, pathToDict, row_prefix)
                 agentIdx = a_list.index(agent)+1
                 vis_list.append(row_prefix + str(agentIdx) + '_'+col_prefix + str(visIdx))
 
@@ -604,7 +645,7 @@ def initTransition(numASM, teamTime,teamTimeID, allStates, allStates_dict, relat
     beforeArrow = '[initial]    t = 0 -> \n'
     afterArrow = ' '*8
 
-    # allStatesDict = allStates_asm(numASM, a_list, s_list, relation_as,relation_ms_no, teamTimeID, probDict)
+    # allStatesDict = all_states_asm(numASM, a_list, s_list, relation_as,relation_ms_no, teamTimeID, probDict)
     
     # calculate sum of all probabilites to divide existing probablities by (ensures probs sum to 1)
     probDen = '( '
@@ -707,10 +748,10 @@ def nextStatesFromAction(actions, timeDict, allStates_dict, numASM, relation_as,
 
     INPUTS: 
     actions, timeDict (from function action2str)
-    allStates_dict (from function allStates_asm)
+    allStates_dict (from function all_states_asm)
 
     '''
-    # allStates_dict = allStates_asm(numASM, a_list, s_list, relation_as,relation_ms_no, teamTimeID, probDict)
+    # allStates_dict = all_states_asm(numASM, a_list, s_list, relation_as,relation_ms_no, teamTimeID, probDict)
     # actions, timeDict = action2str(num_a, num_s, teamTime, teamTimeID,relation_as, row_prefix, col_prefix, a_list, s_list, pathToDict)
     # # actionStates = action2str(num_a, num_s, teamTime, relation_as, row_prefix, col_prefix, a_list, s_list, pathToDict, action = False)
     # print('HERE1')
@@ -791,7 +832,7 @@ def findNumAgents(num_a, num_s, teamTime, allStates, row_prefix, col_prefix, a_l
     outputs dictionary {action: <num of sats>}
     '''
     allActions, timeDict = action2str(num_a, num_s, teamTime, allStates, row_prefix, col_prefix, a_list, s_list, pathToDict, action = False)
-    # allStates = allStates_as(num_a, num_s, relation_as)
+    # allStates = all_states_as(num_a, num_s, relation_as)
 
     numAgents = {}
     for action in allActions:
@@ -818,7 +859,7 @@ def initialCost(num_a, num_s, teamTime,teamTimeID,relation_as, row_prefix, col_p
         rewardStr += '[initial]    numA = ' + str(num) + ' : numA; \n'
     return rewardStr
 
-def constructNumAgentsCost(num_a, num_s, teamTime, allStates, row_prefix, col_prefix, a_list, s_list, m_list, pathToDict, moduleName):
+def construct_num_agents_cost(num_a, num_s, teamTime, allStates, row_prefix, col_prefix, a_list, s_list, m_list, pathToDict, moduleName):
     ''' create rewards module for minimizing number of satellites
     ex:
     [TO_A1S1]    allM : 1;
@@ -842,21 +883,21 @@ def constructNumAgentsCost(num_a, num_s, teamTime, allStates, row_prefix, col_pr
             time = statesDict[act] + " | t < finalTime "
         time = ''
         # costModule += '[TO_'+act+']' + '    ' +'allM' + '\n        : 1' + '; \n'
-        costModule += '[TO_'+act+']' + '    ' + 'allM '+time+'' + ': ' + str(numAgentsDict['[TO_'+act+']']) + '; \n'
+        costModule += '[TO_'+act+']' + '    ' + 'true '+time+'' + ': ' + str(numAgentsDict['[TO_'+act+']']) + '; \n'
     return costModule + 'endrewards \n \n'
 
-def constructKGModule(actions, timeDict, allStates_dict, numASM, prefixList, a_list, s_list, teamTime, relation_as, relation_ms,probDict,pathToDict,missionLength):
+def construct_kg_module(actions, timeDict, allStates_dict, numASM, prefixList, a_list, s_list, teamTime, relation_as, relation_ms,probDict,pathToDict,missionLength, t):
     num_a, num_s, num_m = numASM
     row_prefix, col_prefix, m_prefix = prefixList
 
     # add comment about relationship matrices
     comments = "// agent-sensor relationship matrix: " + str(relation_as.tolist()) + "\n// measurement-sensor matrix: " + str(relation_ms.tolist()) +"\n \n"
     const = probConstants(probDict) + timeConstants(missionLength)
-    states0 = init_states(numASM, prefixList,relation_as, a_list, s_list, teamTime, pathToDict)
+    states0 = init_states(numASM, prefixList,relation_as, a_list, s_list, teamTime, pathToDict, t)
 
     # initTrans = initTransition(numASM, teamTime,teamTimeID,relation_as, relation_ms_no, prefixList, a_list, s_list, probDict, pathToDict)
-    KG_module = comments + "mdp \n \n " + const + "\n module KG \n\n" + states0 + "\n" + entireLine4state(actions, timeDict, allStates_dict, numASM, prefixList, a_list, s_list, relation_as, probDict, pathToDict) + '\n endmodule'
-    return KG_module + '\n'
+    kg_module = comments + "mdp \n \n " + const + "\n module KG \n\n" + states0 + "\n" + entireLine4state(actions, timeDict, allStates_dict, numASM, prefixList, a_list, s_list, relation_as, probDict, pathToDict) + '\n endmodule'
+    return kg_module + '\n'
 
 def constructActionsModule(num_a, num_s, teamTime, teamTimeID, relation_as, row_prefix, col_prefix, a_list, s_list, pathToDict):
     actions0 = init_actions(num_a, num_s, teamTime, teamTimeID, relation_as, row_prefix, col_prefix, a_list, s_list, pathToDict)
@@ -881,19 +922,19 @@ def constructEachPModule(numASM,a_list, s_list,teamTime, teamTimeID, relation_as
     timeR += '\n endrewards \n \n'
     return timeR
 
-def replaceIdx(a_list, s_list, m_list, KG_module, reward_module):
+def replace_idx(a_list, s_list, m_list, kg_module, reward_module):
     # FIGURE OUT HOW TO REPLACE INDICES WITH A LIST OF REWARD MODULES *****
     # replace indices with indices from KG (ex: a1 -> a980)
     for i in range(len(a_list)):
-        KG_module = KG_module.replace("a" + str(i+1) +"_", a_list[i]+"_")
-        KG_module = KG_module.replace("A" + str(i+1) + "S", "A" + a_list[i][1:] + "S")
+        kg_module = kg_module.replace("a" + str(i+1) +"_", a_list[i]+"_")
+        kg_module = kg_module.replace("A" + str(i+1) + "S", "A" + a_list[i][1:] + "S")
         reward_module = reward_module.replace("A" + str(i+1) + "S", "A" + a_list[i][1:] + "S")
 
     for i in range(len(s_list)):
-        KG_module = KG_module.replace("s" + str(i+1) +"'", s_list[i]+"'")
-        KG_module = KG_module.replace("s" + str(i+1) +":", s_list[i]+":")
-        KG_module = KG_module.replace("S" + str(i+1) +"_", "S" + s_list[i][1:] + "_")
-        KG_module = KG_module.replace("S" + str(i+1) +"]", "S" + s_list[i][1:] + "]")
+        kg_module = kg_module.replace("s" + str(i+1) +"'", s_list[i]+"'")
+        kg_module = kg_module.replace("s" + str(i+1) +":", s_list[i]+":")
+        kg_module = kg_module.replace("S" + str(i+1) +"_", "S" + s_list[i][1:] + "_")
+        kg_module = kg_module.replace("S" + str(i+1) +"]", "S" + s_list[i][1:] + "]")
 
         reward_module = reward_module.replace("S" + str(i+1) +"_", "S" + s_list[i][1:] + "_")
         reward_module = reward_module.replace("S" + str(i+1) + " =", "S" + s_list[i][1:] + " =")
@@ -902,24 +943,21 @@ def replaceIdx(a_list, s_list, m_list, KG_module, reward_module):
         reward_module = reward_module.replace("S" + str(i+1) +"]", "S" + s_list[i][1:] + "]")
         
     for i in range(len(m_list)):
-        KG_module = KG_module.replace("m" + str(i+1) + ":", m_list[i] + ":")
-        KG_module = KG_module.replace("m" + str(i+1) + "'", m_list[i] + "'")
+        kg_module = kg_module.replace("m" + str(i+1) + ":", m_list[i] + ":")
+        kg_module = kg_module.replace("m" + str(i+1) + "'", m_list[i] + "'")
 
     allM = '\n formula allM = ('
     for m in m_list:
         allM += m + '=1 & '
     allM = allM[:-3] + '); \n '
 
-    KG_module = allM + KG_module
-    return KG_module, reward_module
+    kg_module = allM + kg_module
+    return kg_module, reward_module
 
-def saveMDPfile(modules, mdpFile):
-
-
-    with open(mdpFile,'w') as out:
+def save_mdp_file(modules, mdp_file):
+    with open(mdp_file,'w') as out:
         for m in modules:
             out.writelines(m)
-        out.close()
 
     # text_file = open(mdpFile, "w")
     # text_file.write(' '.join(modules))

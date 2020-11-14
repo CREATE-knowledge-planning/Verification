@@ -29,7 +29,7 @@ def findMissionLength(pathMissionJSON):
 		return math.ceil(deltaSec/(3600.*24))     # rounding up, dividing to discretize timesteps into days
 
 def generateMissionPCTL(pathMissionJSON, m_list, missionFile, saveFile = False):
-	'''Pmax=?[(true U <= 10 ((m1=1) & (m2=1)))]'''
+	'''single objectve, ex: Pmax=?[(true U <= 10 ((m1=1) & (m2=1)))]'''
 	missionLength = findMissionLength(pathMissionJSON)
 	spec = "Pmax=?[!(true U <= " + str(missionLength) + ' !('
 
@@ -46,7 +46,7 @@ def generateMissionPCTL(pathMissionJSON, m_list, missionFile, saveFile = False):
 	return spec
 
 def generateMissionMulti(m_list, missionFile, rewardList, saveFile = False):
-	'''multi(Pmax=? [G (m1=1 & m2=1)], R{reward1}min=? [ C ])'''
+	'''mult-objective, ex: multi(Pmax=? [G (m1=1 & m2=1)], R{reward1}min=? [ C ])'''
 
 	spec = 'multi(Pmax=? [G ('
 
