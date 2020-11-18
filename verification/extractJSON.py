@@ -61,7 +61,7 @@ def find_time_bounds(team, target, access_intervals):
 
 
 def generate_team_time_id(entity_dict, team_time, a_prefix, s_prefix):
-    ''' convert teamTime agent names and sensor names into 'aID' and 'sID'
+    ''' convert team_time agent names and sensor names into 'aID' and 'sID'
     '''
     team_time_id = copy.deepcopy(team_time)
     for idx, agent in enumerate(team_time):

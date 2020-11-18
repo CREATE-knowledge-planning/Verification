@@ -2,17 +2,20 @@
 
 # main file to run verification step
 import os
+import ast
 import random
 from pathlib import Path
+import shutil
 import subprocess
+import multiprocessing as mp
 
-import verification.encodeMission
+from verification.encodeMission import find_mission_length, generate_mission_multi
 from verification.extractJSON import *
 from verification.generate_MDP_pruned import *
-import verification.parseADV
+from verification.parseADV import pareto_plot_all
 
 
-def call_prism(mdp_path: Path, property_path: Path, output_path: Path, prism_path: Path, wsl=False):
+def call_prism(mdp_path: Path, mission_str, property_path: Path, output_path: Path, prism_path: Path, timestep_path: Path, wsl=False):
     ''' run PRISM in terminal from PRISMpath (/Applications/prism-4.5-osx64/bin)
     save output log in outputPath
     '''
@@ -26,41 +29,14 @@ def call_prism(mdp_path: Path, property_path: Path, output_path: Path, prism_pat
         mdp_wsl_path = subprocess.run(['wsl', 'wslpath', mdp_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
         property_wsl_path = subprocess.run(['wsl', 'wslpath', property_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
         output_wsl_path = subprocess.run(['wsl', 'wslpath', output_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
-        arguments = ['wsl', prism_wsl_path, '-cuddmaxmem', '4g', mdp_wsl_path, property_wsl_path]
+        arguments = ['wsl', prism_wsl_path, '-cuddmaxmem', '4g', '-javamaxmem', '4g', '-pctl', f"'{mission_str}'", '-exportadvmdp', str(timestep_path / "adv.tra"), '-exportprodstates', str(timestep_path / "prod.tra")]
     else:
-        arguments = [str(prism_bin), '-cuddmaxmem', '4g', str(mdp_path), str(property_path)]
+        arguments = [str(prism_bin), '-cuddmaxmem', '4g', '-javamaxmem', '4g', '-pctl', f"'{mission_str}'", '-exportadvmdp', str(timestep_path / "adv.tra"), '-exportprodstates', str(timestep_path / "prod.tra")]
     popen = subprocess.run(arguments, text=True, encoding='utf-8', capture_output=True)
     print(popen.stdout)
     with output_path.open("w", encoding="utf-8") as output_file:
         output_file.write(popen.stdout)
     os.chdir(current_path)
-
-
-def output_adv(mdp_path: Path, property_path: Path, prism_path: Path, simulation_path: Path, wsl=False):
-    # save adversary files
-    current_path = Path(".").resolve()
-    prism_bin = prism_path / 'prism'
-    adv_file = simulation_path / 'adv.tra'
-    adv_file = adv_file.resolve()
-    prod_file = simulation_path / 'prod.sta'
-    prod_file = prod_file.resolve()
-    os.chdir(prism_path)
-    arguments = []
-
-    if wsl:
-        # First, turn all relevant paths into wsl paths
-        prism_wsl_path = subprocess.run(['wsl', 'wslpath', prism_bin.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
-        mdp_wsl_path = subprocess.run(['wsl', 'wslpath', mdp_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
-        property_wsl_path = subprocess.run(['wsl', 'wslpath', property_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
-        adv_file_wsl_path = subprocess.run(['wsl', 'wslpath', adv_file.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
-        prod_file_wsl_path = subprocess.run(['wsl', 'wslpath', prod_file.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
-        arguments = ['wsl', prism_wsl_path, mdp_wsl_path, property_wsl_path, '-exportadvmdp', adv_file_wsl_path, '-exportprodstates', prod_file_wsl_path]
-    else:
-        arguments = [str(prism_bin), str(mdp_path), str(property_path), '-exportadvmdp', str(adv_file), '-exportprodstates', str(prod_file)]
-    popen = subprocess.run(arguments, universal_newlines=True, encoding='utf-8', capture_output=True)
-    print(popen.stdout)
-    os.chdir(current_path)
-
 
 def output_result(output_path):
     with open(output_path) as file:
@@ -71,9 +47,11 @@ def output_result(output_path):
     except:
         raise ValueError('Error occurred when running PRISM. See ' + str(output_path) + ' for details.')
         return
-    # return float(resultList[1])
-    return result_line
+    result_line = result_line.split(':')[1]
+    result_line = result_line.split(']')[0][2:]
+    result_line = ast.literal_eval(result_line)
 
+    return result_line
 
 def construct_team(team: dict):
     ''' add unique IDs to sensors in a team '__<num>'
@@ -86,30 +64,11 @@ def construct_team(team: dict):
             team[a][i][s+'__'+str(num)] = team[a][i].pop(s)     # replace sensor with sensor__num
             allsensors.append(s)
         
-
-def construct_team_from_list(satellite_list):
-    ''' add unique IDs to sensors in a team '__<num>'
-    '''
-    allsensors = []
-    new_satellite_list = []
-    for satellite in satellite_list:
-        satellite["sensors"] = [sensor for sensor in satellite["sensors"] if sensor["characteristics"]]
-        new_satellite = copy.deepcopy(satellite)
-        for idx, sensor in enumerate(satellite["sensors"]):
-            sensor_name = sensor["name"]   # sensor
-            num = allsensors.count(sensor_name) + 1
-            new_satellite["sensors"][idx]["name"] = sensor_name + '__' + str(num)
-            allsensors.append(sensor_name)
-        new_satellite_list.append(new_satellite)
-    return new_satellite_list
-
-
 def check_time(team, team_time_id, m_list, entity_dict, s_prefix, m_prefix):
     '''
     which measurements are free during what time intervals given a team
     output dictionary of {m: time intervals}
     '''
-    # from extractJSON
 
     # reconstruct teamTime ID so that it's only {sensor: [time interval]}
     new_time_dict = {}
@@ -127,95 +86,150 @@ def check_time(team, team_time_id, m_list, entity_dict, s_prefix, m_prefix):
             measurement_name = measurement_info[0]
             sensor = new_time_dict[sensor_name]
             check[measurement_name] = sorted(check[measurement_name] + sensor["times"], key=lambda x: x[0])
+    return check
     # print(check)
 
 
-def main(team):
-    # data from knowledge graph 
-    path_mission_json = 'mission.json'
-    path_time_json = 'accesses.json'
-    pathToDict = '../KG_examples/outputs_KGMLN_1/output.dict'
-    ## FOR MOUNT YASUR MISSION
-    # pathTimeJSON = 'test_antoni/MountYasur.json'
-    # pathToDict = 'test_antoni/output.dict'
-    # bin directory of PRISM application
-    PRISMpath = '/Applications/prism-4.6/prism/bin'      
+# create function that finds possible team for given timestep
+def team_per_timestep(team, team_time, t):
+    '''
+    Inputs
+    team        original team [{'name': 'agent1', 'sensors': [{sensor1: {obs1: P1}, {sensor2: {obs2: P2}}}], agent2: [{sensor3: {obs3: P3} }] }]
+    teamTime    dictionary of agents, sensors, and visiblity windows
+    t           specified timestep
 
-    # name of files for PRISM (saved to current directory)
-    missionFile = "prop1.txt"             # specification
-    mdpFile = "KG_MDP1.txt"                   # MDP
-    outputFile = "output1.txt"            # output log
+    Outputs
+    teamAtTimestep     possible team at t, same format as team
+    '''
+    team_at_timestep = []
+    for a_idx, agent in enumerate(team_time):
+        team_at_timestep.append({"name": agent["name"], "sensors": []})
+        for s_idx, sensor in enumerate(agent["sensors"]):
+            for interval in sensor:
+                if t in range(interval[0], interval[1]):
+                    team_at_timestep[-1]["sensors"].append(team[a_idx]["sensors"][s_idx])
+        if team_at_timestep[-1]["sensors"] == []:   # if agent is not visible at t
+            del team_at_timestep[-1]
+    return team_at_timestep
 
-    # res1 = [random.randrange(0, 1000)/1000. for i in range(168)] 
-    # res2 =     [random.randrange(0, 1000)/1000. for i in range(168)] 
 
-    # team = {'GOES-17': [{'ABI': {'Cloud type': res1}    }], \
-    #     'Metop-A': [{'IASI': {'Land surface temperature': res2}}]}
+def main_parallelized(target, team, t):
+    team_time = find_time_bounds(team, target, path_time_json)
+    for a_idx, agent_info in enumerate(team_time):
+        for s_idx, _ in enumerate(agent_info["sensors"]):
+            team_time[a_idx]["sensors"][s_idx] = [[t, t+1]]
 
-    construct_team(team)
-    target = findTarget(path_mission_json)
-    teamTime = find_time_bounds(team, target, path_time_json)
-    
-    prefixList = ['a', 's', 'm']
-    a_prefix, s_prefix, m_prefix = prefixList
-    teamTimeID = generate_team_time_id(pathToDict, teamTime, a_prefix, s_prefix)
+    prefix_list = ['a', 's', 'm']
+    a_prefix, s_prefix, m_prefix = prefix_list
+    teamTimeID = generate_team_time_id(pathToDict, team_time, a_prefix, s_prefix)
     
     a_list, s_list, m_list = generate_asm_lists(team, pathToDict, a_prefix, s_prefix, m_prefix)
     numASM = [len(a_list), len(s_list), len(m_list)]
     num_a, num_s, num_m = numASM
 
     rewardList = ['numAgents']
-    print('# of agents, sensors, meas: ',numASM)
+    # print('# of agents, sensors, meas: ',numASM)
 
     check_time(team, teamTimeID, m_list, pathToDict, s_prefix, m_prefix)
 
     # mission for PRISM
-    rewardList = ['numAgents']
-    missionLength = encodeMission.findMissionLength(path_mission_json)
-    # missionPCTL = encodeMission.generateMissionPCTL(path_mission_json, m_list, mission_file, saveFile = True)
-    missionPCTL = encodeMission.generateMissionMulti(m_list, mission_file, rewardList, saveFile = True)
+    missionLength = t+1
+    # mission_file = encodeMission.generatemission_file(path_mission_json, m_list, missionFile, saveFile = True)
+    mission_str = generate_mission_multi(m_list, missionFile, rewardList)
     
     # relationship matrices
-    relation_as = construct_as_matrix(team, path_to_dict, num_a, num_s, a_prefix, s_prefix, a_list, s_list)
-    relation_ms = construct_ms_matrix(team, path_to_dict, num_m, num_s, m_prefix, s_prefix, m_list, s_list)
+    relation_as = construct_as_matrix(team, pathToDict, num_a, num_s, a_prefix, s_prefix, a_list, s_list)
+    relation_ms = construct_ms_matrix(team, pathToDict, num_m, num_s, m_prefix, s_prefix, m_list, s_list)
     
-    relation_ms_no, probDict = not_meas_mat(team, path_to_dict, relation_ms, num_m, num_s,  m_prefix, s_prefix, m_list, s_list)
+    relation_ms_no, probDict = not_meas_mat(team, pathToDict, relation_ms, num_m, num_s,  m_prefix, s_prefix, m_list, s_list)
 
     # modules for PRISM MDP
     allStates = all_states_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID)
-    num_states = len(allStates)    # total number of states
+    allStates, allStates_dict = all_states_asm(numASM, relation_as,relation_ms_no, allStates, probDict)
+    
+    actions, timeDict = action2str(num_a, num_s, team_time, allStates, a_prefix, s_prefix, a_list, s_list, pathToDict)
 
-    allStates_dict = all_states_asm(numASM, relation_as,relation_ms_no, allStates, probDict)
-    actions, timeDict = action2str(num_a, num_s, teamTime, allStates, a_prefix, s_prefix, a_list, s_list, pathToDict)
-
-    KG_module = construct_kg_module(actions, timeDict, allStates_dict, numASM, prefixList, a_list, s_list, teamTime, relation_as, relation_ms,probDict,pathToDict,missionLength)
+    kg_module = construct_kg_module(actions, timeDict, allStates_dict, numASM, prefix_list, a_list, s_list, team_time, relation_as, relation_ms, probDict, pathToDict, missionLength, t)
 
     rewardsName = rewardList[0]    # criteria we care about
-    rewards_module1 = construct_num_agents_cost(num_a, num_s, teamTime, allStates, a_prefix, s_prefix, a_list, s_list, m_list, pathToDict, rewardsName)
+    rewards_module1 = construct_num_agents_cost(num_a, num_s, team_time, allStates, a_prefix, s_prefix, a_list, s_list, m_list, pathToDict, rewardsName)
     # rewards_module2 = constructEachPModule(num_a, num_s, num_m,a_list, s_list,teamTime, teamTimeID, relation_as, relation_ms_no,a_prefix, s_prefix, m_prefix, probDict, pathToDict)
-    KG_module, rewards_module1 = replace_idx(a_list, s_list, m_list, KG_module, rewards_module1)
+    kg_module, rewards_module1 = replace_idx(a_list, s_list, m_list, kg_module, rewards_module1)
 
-    modules = [KG_module, rewards_module1]
-    save_mdp_file(modules, mdpFile)
+        # save adv files to Verification folder
+    current_dir = str(os.getcwd())
+    timestep_path = current_dir+'/t'+str(t)
+    os.mkdir(timestep_path)
 
     # save PRISM files to current directory
-    current_dir = str(os.getcwd())
-    call_prism(mdp_file, mission_file, output_file, prism_path)
-    # change directory back
-    os.chdir(current_dir)
-    result = output_result(output_file)
+    mdp_file = timestep_path + '/' + mdpFile
+    output_path = timestep_path + '/' + outputFile 
     
-    output_adv(mdp_file, mission_file, prism_path, int_path)
+    modules = [kg_module, rewards_module1]
+    save_mdp_file(modules, mdp_file)
+  
+    call_prism(mdp_file, mission_str, output_path, prism_path, timestep_path)
+ 
     # change directory back
     os.chdir(current_dir)
+    result = output_result(output_path)
+    
+    teams = parse_adv_main(pathToDict, timestep_path)
+    
+    # print('time for timestep: ', time.time()-t0)
+    # delete directory
+    shutil.rmtree(timestep_path)
 
-    print('\n ===================== PARETO FRONT POINTS ===================== ')
-    print(result)
-    print('\n ===================== POSSIBLE TEAMS ===================== ')
-    return parseADV.parseADVmain(path_to_dict, int_path)
+    return result, teams
+
+def main(team, path_mission_json):
+    mission_length = find_mission_length(path_mission_json)
+
+    target = findTarget(path_mission_json)
+    construct_team(team)
+    teamTime1 = find_time_bounds(team, target, path_time_json)
+
+    def parallelize(i, q):
+        teamUpd = team_per_timestep(team, teamTime1, i)
+        q.put(main_parallelized(target, teamUpd, i))
+
+    qout = mp.Queue()
+    processes = [mp.Process(target=parallelize, args=(i, qout)) for i in range(mission_length)]
+    for p in processes:
+        p.start()
+
+    for p in processes:
+        p.join()
+
+    result = []
+    teaming = []
+    for p in processes:
+        result_p, teaming_p = qout.get()
+        result.append(result_p)
+        teaming.append(teaming_p)
+
+    # merge all teaming dictionaries into one
+    teams = {k: v for d in teaming for k, v in d.items()}
+
+    optimal_teaming = pareto_plot_all(result, teams)
+    print('\n ===================== OPTIMAL TEAM ===================== ')
+    print(optimal_teaming)
+
+    return optimal_teaming
 
 
 if __name__== "__main__":
+    # data from knowledge graph 
+    path_mission_json = 'mission.json'
+    path_time_json = 'accesses.json'
+    pathToDict = '../KG_examples/outputs_KGMLN_1/output.dict'
+    prism_path = '/Applications/prism-4.6/prism/bin' 
+
+    # name of files for PRISM (saved to current directory)
+    missionFile = "prop1.txt"             # specification
+    mdpFile = "KG_MDP1.txt"                   # MDP
+    outputFile = "output1.txt"            # output log
+
     team1 =  {'GOES-17': [{'ABI': {'Cloud type': [0.84130652]} }], \
             'GOES-16': [{'ABI': {'Fire temperature': [0.99999966], 'Cloud type': [0.84130652]} }], \
             'CARTOSAT-2B': [{'PAN (Cartosat-2A/2B)': {'Land surface topography': [0.95]} }], \
@@ -258,7 +272,26 @@ if __name__== "__main__":
         }
     newteam = {'DMSP F-16': [{'OLS': {'Cloud type': [0.8847111997185332]}}], 'Pleiades 1B': [{'HiRI': {'Land surface topography': [1.0]}}], 'COSMO-SkyMed 4': [{'SAR 2000': {'Land surface topography': [1.0]}}], 'KOMPSAT-3A': [{'AEISS-A': {'Land surface topography': [0.6852636304815738]}}], 'NOAA-18': [{'AMSU-A': {'Land surface temperature': [0.630040185701942], 'Cloud type': [1.0]}}, {'AVHRR/3': {'Land surface temperature': [1.0]}}, {'HIRS/4': {'Land surface temperature': [0.9750801108493535]}}, {'MHS': {'Cloud type': [1.0]}}], 'Metop-A': [{'AMSU-A': {'Land surface temperature': [1.0], 'Cloud type': [1.0]}}, {'AVHRR/3': {'Land surface temperature': [0.8881435443393207]}}, {'HIRS/4': {'Land surface temperature': [1.0]}}, {'MHS': {'Cloud type': [0.850511996278507]}}, {'IASI': {'Land surface temperature': [0.7791364271353445]}}], 'Sentinel-1 A': [{'C-Band SAR': {'Land surface topography': [0.9458354523040686]}}], 'CloudSat': [{'CPR (CloudSat)': {'Cloud type': [0.9476501928289525]}}], 'CSG-1': [{'CSG SAR': {'Land surface topography': [1.0]}}], 'GOES-17': [{'ABI': {'Fire temperature': [0.6532319622825102], 'Cloud type': [1.0], 'Land surface temperature': [1.0]}}]}    
     team_bench.update(team2)
-    t_tot = time.time()
-    main(team_bench)
-    elapsed = time.time() - t_tot
-    print('total time elapsed: ', elapsed)
+
+
+    team = team_bench
+    main(team, path_mission_json)
+    
+
+    # t=4
+    # for t in range(7):
+    #     teamUpd = team_per_timestep(team, teamTime1, t)
+    #     print('\n ********* \n timestep: ',t)
+    #     main(teamUpd, result, t)
+    # print('------------------\n')
+    # print(result)
+
+    # q = multiprocessing.Queue()
+    # num_cores = multiprocessing.cpu_count()
+    # inputs = range(7)
+    # processed_list = Parallel(n_jobs=num_cores)(delayed(main_test)(i) for i in inputs)
+
+
+    # t_tot = time.time()
+    # elapsed = t_tot - t_init
+    # print('total time elapsed: ', elapsed)

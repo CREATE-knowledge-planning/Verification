@@ -23,7 +23,7 @@ def find_mission_length(mission_info):
 
 
 def generateMissionPCTL(pathMissionJSON, m_list, missionFile, saveFile = False):
-	'''Pmax=?[(true U <= 10 ((m1=1) & (m2=1)))]'''
+	'''single objectve, ex: Pmax=?[(true U <= 10 ((m1=1) & (m2=1)))]'''
 	missionLength = find_mission_length(pathMissionJSON)
 	spec = "Pmax=?[!(true U <= " + str(missionLength) + ' !('
 
@@ -40,7 +40,7 @@ def generateMissionPCTL(pathMissionJSON, m_list, missionFile, saveFile = False):
 	return spec
 
 def generate_mission_multi(m_list, mission_file, reward_list, save_file=False):
-	'''multi(Pmax=? [G (m1=1 & m2=1)], R{reward1}min=? [ C ])'''
+	'''mult-objective, ex: multi(Pmax=? [G (m1=1 & m2=1)], R{reward1}min=? [ C ])'''
 
 	spec = 'multi(Pmax=? [G ('
 
