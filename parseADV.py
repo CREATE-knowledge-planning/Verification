@@ -211,21 +211,28 @@ def pareto_plot_all(result, teams, showplot = False):
     ''' plot pareto front given parallelized teaming plans
     '''
     dict_temp = {}
+    
     for i in range(len(result)):
-        adv_list = sorted(list(result[i]),key=lambda x:round(x[1],5))    # sorted by rewards
-        # modify so that if one unit of reward is missing in a timestep, add missing numA and keep probability same as numA-1
-        r = int(round(adv_list[0][1], 5))
-        idx = 1
+        # print(list(result[i]))
+        # print(round(list(result[i]),5))
+        if not np.any(result[i]):   # if result[i] = (0.0,0.0)
+            adv_list = [(0.0, 0.0)]
+        else:
 
-        while r < round(adv_list[-1][1], 5):
-            prev_reward = round(adv_list[idx-1][1], 5)
-            if round(adv_list[idx][1], 5) != prev_reward+1:    # missing reward values
-                prev_prob = adv_list[idx-1][0]
-                adv_list.insert(idx, (prev_prob,prev_reward+1))
-            else:
-                r+=1
-                idx +=1
-        adv_list.insert(0, (0.0,0.0))
+            adv_list = sorted(list(result[i]),key=lambda x:round(x[1],5))    # sorted by rewards
+            # modify so that if one unit of reward is missing in a timestep, add missing numA and keep probability same as numA-1
+            r = int(round(adv_list[0][1], 5))
+            idx = 1
+
+            while r < round(adv_list[-1][1], 5):
+                prev_reward = round(adv_list[idx-1][1], 5)
+                if round(adv_list[idx][1], 5) != prev_reward+1:    # missing reward values
+                    prev_prob = adv_list[idx-1][0]
+                    adv_list.insert(idx, (prev_prob,prev_reward+1))
+                else:
+                    r+=1
+                    idx +=1
+            adv_list.insert(0, (0.0,0.0))
         dict_temp[i] = adv_list
 
     combos = list(itertools.product(*dict_temp.values()))

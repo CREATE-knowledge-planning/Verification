@@ -97,18 +97,17 @@ def team_per_timestep(team, teamTime, t):
             teamAtTimestep.pop(a)
     return teamAtTimestep 
 
-def main_parallelized(target, team,t):
+def main_parallelized(target, team, m_list, prefixList, t):
 
     teamTime = extractJSON.find_time_bounds(team, target, path_time_json)
     for k in teamTime.keys():
         for s in teamTime[k].keys():
             teamTime[k][s] = [[t, t+1]]
 
-    prefixList = ['a', 's', 'm']
     a_prefix, s_prefix, m_prefix = prefixList
     teamTimeID = extractJSON.generate_team_time_id(pathToDict, teamTime, a_prefix, s_prefix)
     
-    a_list, s_list, m_list = extractJSON.generate_asm_lists(team, pathToDict, a_prefix, s_prefix, m_prefix)
+    a_list, s_list = extractJSON.generate_as_lists(team, pathToDict, a_prefix, s_prefix)
     numASM = [len(a_list), len(s_list), len(m_list)]
     num_a, num_s, num_m = numASM
 
@@ -125,7 +124,7 @@ def main_parallelized(target, team,t):
     # relationship matrices
     relation_as = extractJSON.construct_as_matrix(team, pathToDict, num_a, num_s, a_prefix, s_prefix, a_list, s_list)
     relation_ms = extractJSON.construct_ms_matrix(team, pathToDict, num_m, num_s, m_prefix, s_prefix, m_list, s_list)
-    
+
     relation_ms_no, probDict = extractJSON.not_meas_mat(team, pathToDict, relation_ms, num_m, num_s,  m_prefix, s_prefix, m_list, s_list)
 
     # modules for PRISM MDP
@@ -161,13 +160,15 @@ def main_parallelized(target, team,t):
     
     teams = parseADV.parse_adv_main(pathToDict, timestep_path)
     
-    # print('time for timestep: ', time.time()-t0)
     # delete directory
-    shutil.rmtree(timestep_path)
+    # shutil.rmtree(timestep_path)
 
     return result, teams
 
 def main(team, path_mission_json):
+    prefixList = ['a', 's', 'm']
+    m_list = extractJSON.generate_m_list(team, simulation_file, pathToDict, prefixList[2])
+
     mission_length = encodeMission.findMissionLength(path_mission_json)
 
     target = extractJSON.findTarget(path_mission_json)
@@ -176,7 +177,7 @@ def main(team, path_mission_json):
 
     def parallelize(i, q):
         teamUpd = team_per_timestep(team, teamTime1, i)
-        q.put(main_parallelized(target, teamUpd, i))
+        q.put(main_parallelized(target, teamUpd, m_list, prefixList, i))
 
     qout = mp.Queue()
     processes = [mp.Process(target=parallelize, args=(i, qout)) for i in range(mission_length)]
@@ -208,6 +209,7 @@ if __name__== "__main__":
     path_mission_json = 'mission.json'
     path_time_json = 'accesses.json'
     pathToDict = '../KG_examples/outputs_KGMLN_1/output.dict'
+    simulation_file = '../KG_examples/outputs_KGMLN_1/simulation_information.json'
     prism_path = '/Applications/prism-4.6/prism/bin' 
 
     # name of files for PRISM (saved to current directory)
