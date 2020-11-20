@@ -245,20 +245,23 @@ def all_states_asm(num_asm, relation_as, relation_ms_no, allStates, prob_dict):
 
     # for p in list(probDict.keys()):
     #     exec(p + '=' + str(probDict[p][0]))
-
-    allStates_new = []
+    possible = False
+    allStates_new = [(0,)*num_m]
     for state in allStates:
         m_prob_dict = m_prob_all(num_asm, relation_as, state, meas_zero_dict, prob_dict)
         state_as = tuple(state.flatten())
-        # for val in mProb_dict.values():
-        # #     print(val, type(val), eval(val))
-
-        if (1,)*num_m in m_prob_dict:
+        
+        if not np.any(state):     # if all states are zero:
+            all_states_dict[state_as] = m_prob_dict
+            allStates_new.append(state)
+        elif (1,)*num_m in m_prob_dict:
+            possible = True
         #     # if mProb_dict[(1,)*num_m] > 0.65:
             all_states_dict[state_as] = m_prob_dict
             allStates_new.append(state)
         # allStates_dict[state_as] = mProb_dict
         # allStates_new.append(state)
+
     return allStates_new, all_states_dict
 
  ###############################################################
@@ -950,12 +953,13 @@ def replace_idx(a_list, s_list, m_list, kg_module, reward_module):
         kg_module = kg_module.replace("m" + str(i+1) + ":", m_list[i] + ":")
         kg_module = kg_module.replace("m" + str(i+1) + "'", m_list[i] + "'")
 
-    allM = '\nformula allM = ('
+    
     if len(m_list) > 0:
+        allM = '\nformula allM = ('
         allM += " & ".join([f"{m}=1" for m in m_list])
+        allM += '); \n'
     else:
-        allM += "true"
-    allM += '); \n'
+        allM = '\n formula allM = true; \n '
 
     kg_module = allM + kg_module
     return kg_module, reward_module

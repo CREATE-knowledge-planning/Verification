@@ -192,23 +192,22 @@ def generate_s_list(team, entity_dict, prefix):
     return s_list
 
 
-def generate_m_list(team, entity_dict, prefix):
-    m_list = set()
-    for agent in team:
-        for sensor in agent["sensors"]:       # for each sensor of an agent
-            for measurement in sensor["characteristics"].keys():
-                measurement_id = find_id(measurement, entity_dict, prefix)
-                m_list.add(measurement_id)
-    m_list = list(m_list)
-    sort_nicely(m_list)
+def generate_m_list(team, simulation_file, entity_dict, prefix):
+    m_list = []
+    with open(simulation_file) as file:
+        data = json.load(file)
+        measurements = data["observable_properties"]
+
+    for m in measurements:
+        measurement_id = find_id(m, entity_dict, prefix)
+        m_list.append(measurement_id)
     return m_list
 
-
-def generate_asm_lists(team, entity_dict, a_prefix, s_prefix, m_prefix):
+def generate_as_lists(team, entity_dict, a_prefix, s_prefix):
     a_list = generate_a_list(team, entity_dict, a_prefix)
     s_list = generate_s_list(team, entity_dict, s_prefix)
-    m_list = generate_m_list(team, entity_dict, m_prefix)
-    return a_list, s_list, m_list
+    # m_list = generate_m_list(team, entity_dict, m_prefix)
+    return a_list, s_list
 
 
 def create_as_dict(team, entity_dict, a_prefix, s_prefix):

@@ -128,17 +128,16 @@ def team_per_timestep(team, team_time, t):
     return team_at_timestep
 
 
-def main_parallelized(entity_dict, inv_entity_dict, mission_file, mdp_filename, output_filename, simulation_path, prism_path, team, t):
+def main_parallelized(entity_dict, inv_entity_dict, mission_file, mdp_filename, output_filename, simulation_path, prism_path, team, m_list, prefix_list, t):
     team_time = copy.deepcopy(team)
     for a_idx, agent_info in enumerate(team_time):
         for s_idx, _ in enumerate(agent_info["sensors"]):
             team_time[a_idx]["sensors"][s_idx]["times"] = [[t, t+1]]
 
-    prefix_list = ['a', 's', 'm']
     a_prefix, s_prefix, m_prefix = prefix_list
     teamTimeID = generate_team_time_id(entity_dict, team_time, a_prefix, s_prefix)
     
-    a_list, s_list, m_list = generate_asm_lists(team, entity_dict, a_prefix, s_prefix, m_prefix)
+    a_list, s_list = generate_as_lists(team, entity_dict, a_prefix, s_prefix)
     numASM = [len(a_list), len(s_list), len(m_list)]
     num_a, num_s, num_m = numASM
 
@@ -191,13 +190,15 @@ def main_parallelized(entity_dict, inv_entity_dict, mission_file, mdp_filename, 
     
     teams = parse_adv_main(inv_entity_dict, timestep_path)
     
-    # print('time for timestep: ', time.time()-t0)
     # delete directory
     shutil.rmtree(timestep_path, ignore_errors=True)
 
     return result, teams
 
 def main(team, path_mission_json):
+    prefixList = ['a', 's', 'm']
+    m_list = generate_m_list(team, simulation_file, pathToDict, prefixList[2])
+
     mission_length = find_mission_length(path_mission_json)
 
     target = findTarget(path_mission_json)
@@ -206,7 +207,7 @@ def main(team, path_mission_json):
 
     def parallelize(i, q):
         teamUpd = team_per_timestep(team, teamTime1, i)
-        q.put(main_parallelized(target, teamUpd, i))
+        q.put(main_parallelized(target, teamUpd, m_list, prefixList, i))
 
     qout = mp.Queue()
     processes = [mp.Process(target=parallelize, args=(i, qout)) for i in range(mission_length)]
@@ -238,6 +239,7 @@ if __name__== "__main__":
     path_mission_json = 'mission.json'
     path_time_json = 'accesses.json'
     pathToDict = '../KG_examples/outputs_KGMLN_1/output.dict'
+    simulation_file = '../KG_examples/outputs_KGMLN_1/simulation_information.json'
     prism_path = '/Applications/prism-4.6/prism/bin' 
 
     # name of files for PRISM (saved to current directory)
