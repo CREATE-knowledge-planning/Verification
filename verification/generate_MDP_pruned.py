@@ -287,12 +287,12 @@ def names_m(num_m, m_prefix):
     return allStates 
 
 
-def init_states(num_asm, prefix_list, relation_as, a_list, s_list, team_time, entity_dict):
+def init_states(numASM, prefixList, relation_as, a_list, s_list, team_time, entity_dict, t):
     ''' string of initialized states, assuming we always initialize with everything = 0 (all m_i = 1)'''
 
     # find which sensors are initially visible
-    num_a, num_s, num_m = num_asm
-    row_prefix, col_prefix, m_prefix = prefix_list
+    num_a, num_s, num_m = numASM
+    row_prefix, col_prefix, m_prefix = prefixList
 
     vis_list = []
     for agent in team_time:
@@ -304,7 +304,7 @@ def init_states(num_asm, prefix_list, relation_as, a_list, s_list, team_time, en
                 agent_idx = a_list.index(agent_id) + 1
                 vis_list.append(row_prefix + str(agent_idx) + '_' + col_prefix + str(vis_idx))
 
-    states_as = names_as(num_asm, row_prefix, col_prefix, relation_as)
+    states_as = names_as(numASM, row_prefix, col_prefix,relation_as)
     states_as = list(filter(lambda a: a != 'NaN', states_as))
     states_m = names_m(num_m, m_prefix)
 
@@ -460,19 +460,22 @@ def line_with_string(string, fp):
             return line
 
 
-def sensor_time_bounds(sensor_times):
+def sensor_time_bounds(team_time, agent, sensor):
     ''' for each agent's sensor, construct visibility time constraints in PRISM syntax
     example:
     (((t >= 1) & t <= 5)) | ((t >= 10) & t <= 20))) & t < totalTime
     '''
-    timeStr = ''
+    time_str = ''
     # for s in team[agent].keys():
-    for bounds in sensor_times:      # for each time bound
-        timeStr += '((t >= ' + str(bounds[0]) + ') & (t < ' + str(bounds[1]) + ')) | '
+    for time_agent in team_time:
+        if time_agent["name"] == agent:
+            for time_sensor in time_agent["sensors"]:
+                if time_sensor["name"] == sensor:
+                    for bounds in time_sensor["times"]:      # for each time bound
+                        time_str += '((t >= ' + str(bounds[0]) + ') & (t < ' + str(bounds[1]) + ')) | '
 
-
-    timeStr = timeStr[:-3]    # remove extra ' | '
-    return timeStr
+    time_str = time_str[:-3]    # remove extra ' | '
+    return time_str
 
 
 def action2str(num_a, num_s, team_time, all_states, row_prefix, col_prefix, a_list, s_list, inv_entity_dict, action=True, state_dict=False):
@@ -529,7 +532,7 @@ def action2str(num_a, num_s, team_time, all_states, row_prefix, col_prefix, a_li
             if action:
                 act = act + ']'
             # timeDict[act] = timeStr[:-3] # remove last ' & ' (need for unparallelized version)
-            timeDict[act] = time_str
+            time_dict[act] = time_str
             act2mat_dict[tuple(state.flatten())] = act
 
         actions.append(act)
@@ -735,7 +738,7 @@ def action2state(num_a, num_s, row_prefix, col_prefix, action):
 
     return state
         
-def nextStatesFromAction(actions, timeDict, allStates_dict, numASM, relation_as, prefixList, probDict, pathToDict):
+def nextStatesFromAction(actions, timeDict, allStates_dict, numASM, relation_as, prefixList, probDict, entity_dict):
     '''based on the action given, generate transition probabilities (aka generate everything after the "->" 
     outputs {["TO_<STATE>"]}: "<P:states>"}
 
@@ -776,7 +779,7 @@ def nextStatesFromAction(actions, timeDict, allStates_dict, numASM, relation_as,
     # print('HERE2')
     return trans_dict
 
-def entireLine4state(actions, timeDict, allStates_dict, numASM,prefixList, a_list, s_list, relation_as, probDict, pathToDict):     # needs a better name
+def entireLine4state(actions, timeDict, allStates_dict, numASM,prefixList, a_list, s_list, relation_as, probDict, entity_dict):     # needs a better name
     ''' outputs entire line of agent transition: 
     (a1_s1 = 0 & ...) | (a1_s1 = 1 & ...) | ... -> (a1_s1' = 0 & ...) ...
     '''
@@ -786,7 +789,7 @@ def entireLine4state(actions, timeDict, allStates_dict, numASM,prefixList, a_lis
     num_a, num_s, num_m = numASM
     row_prefix, col_prefix, m_prefix = prefixList
 
-    trans_dict = nextStatesFromAction(actions, timeDict, allStates_dict, numASM, relation_as, prefixList, probDict, pathToDict)
+    trans_dict = nextStatesFromAction(actions, timeDict, allStates_dict, numASM, relation_as, prefixList, probDict, entity_dict)
 
     all_str =""
 
@@ -885,14 +888,14 @@ def construct_num_agents_cost(num_a, num_s, team_time, all_states, row_prefix, c
     return cost_module + 'endrewards \n \n'
 
 
-def construct_kg_module(actions, time_dict, all_states_dict, num_asm, prefix_list, a_list, s_list, team_time, relation_as, relation_ms, prob_dict, entity_dict, mission_length):
+def construct_kg_module(actions, time_dict, all_states_dict, num_asm, prefix_list, a_list, s_list, team_time, relation_as, relation_ms, prob_dict, entity_dict, mission_length, t):
     num_a, num_s, num_m = num_asm
     row_prefix, col_prefix, m_prefix = prefix_list
 
     # add comment about relationship matrices
     comments = "// agent-sensor relationship matrix: " + str(relation_as.tolist()) + "\n// measurement-sensor matrix: " + str(relation_ms.tolist()) +"\n \n"
     const = probConstants(prob_dict) + timeConstants(mission_length)
-    states0 = init_states(num_asm, prefix_list, relation_as, a_list, s_list, team_time, entity_dict)
+    states0 = init_states(num_asm, prefix_list, relation_as, a_list, s_list, team_time, entity_dict, t)
 
     # initTrans = initTransition(numASM, teamTime,teamTimeID,relation_as, relation_ms_no, prefixList, a_list, s_list, probDict, pathToDict)
     kg_module = comments + "mdp \n \n " + const + "\n module KG \n\n" + states0 + "\n" + entireLine4state(actions, time_dict, all_states_dict, num_asm, prefix_list, a_list, s_list, relation_as, prob_dict, entity_dict) + '\n endmodule'
@@ -947,10 +950,12 @@ def replace_idx(a_list, s_list, m_list, kg_module, reward_module):
         kg_module = kg_module.replace("m" + str(i+1) + ":", m_list[i] + ":")
         kg_module = kg_module.replace("m" + str(i+1) + "'", m_list[i] + "'")
 
-    allM = '\n formula allM = ('
-    for m in m_list:
-        allM += m + '=1 & '
-    allM = allM[:-3] + '); \n '
+    allM = '\nformula allM = ('
+    if len(m_list) > 0:
+        allM += " & ".join([f"{m}=1" for m in m_list])
+    else:
+        allM += "true"
+    allM += '); \n'
 
     kg_module = allM + kg_module
     return kg_module, reward_module

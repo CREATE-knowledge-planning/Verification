@@ -2,9 +2,9 @@
 
 # PARSE SYNTHESIZED PATH GENERATED FROM PRISM
 
+import itertools
 from pathlib import Path
 from verification.extractJSON import find_name
-import os
 import glob
 import main
 import matplotlib.pyplot as plt 
@@ -158,15 +158,15 @@ def calculate_reward2(actions, allP):
         Pprev = allP[act]
     return V
 
-def parse_adv_main(inv_entity_dict, timestep_path):
+def parse_adv_main(inv_entity_dict, timestep_path: Path):
     teams = {}
 
     num = len(glob.glob1(timestep_path,"*.tra"))     # number of adversary files
     for i in range(num):
         # print('\nadv' + str(i+1) + '.tra')
-        adv_file_path = timestep_path + '/adv' + str(i+1)+'.tra'
-        sta_file_path = timestep_path + '/prod.sta'
-        pathStates, actions, allP = (generate_path(adv_file_path,sta_file_path))
+        adv_file_path = timestep_path / f"adv{i+1}.tra"
+        sta_file_path = timestep_path / 'prod.sta'
+        pathStates, actions, allP = (generate_path(adv_file_path, sta_file_path))
         pathStates = list(convert_agents(actions, inv_entity_dict, pathStates))
         # print('Path: ',convert_agents(actions, inv_entity_dict, pathStates))
         prob = np.prod(allP)

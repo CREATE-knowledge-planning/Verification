@@ -12,10 +12,10 @@ import multiprocessing as mp
 from verification.encodeMission import find_mission_length, generate_mission_multi
 from verification.extractJSON import *
 from verification.generate_MDP_pruned import *
-from verification.parseADV import pareto_plot_all
+from verification.parseADV import pareto_plot_all, parse_adv_main
 
 
-def call_prism(mdp_path: Path, mission_str, property_path: Path, output_path: Path, prism_path: Path, timestep_path: Path, wsl=False):
+def call_prism(mdp_path: Path, mission_str, output_path: Path, prism_path: Path, timestep_path: Path, wsl=False):
     ''' run PRISM in terminal from PRISMpath (/Applications/prism-4.5-osx64/bin)
     save output log in outputPath
     '''
@@ -27,13 +27,12 @@ def call_prism(mdp_path: Path, mission_str, property_path: Path, output_path: Pa
         # First, turn all relevant paths into wsl paths
         prism_wsl_path = subprocess.run(['wsl', 'wslpath', prism_bin.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
         mdp_wsl_path = subprocess.run(['wsl', 'wslpath', mdp_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
-        property_wsl_path = subprocess.run(['wsl', 'wslpath', property_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
         output_wsl_path = subprocess.run(['wsl', 'wslpath', output_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
-        arguments = ['wsl', prism_wsl_path, '-cuddmaxmem', '4g', '-javamaxmem', '4g', '-pctl', f"'{mission_str}'", '-exportadvmdp', str(timestep_path / "adv.tra"), '-exportprodstates', str(timestep_path / "prod.tra")]
+        arguments = ['wsl', prism_wsl_path, '-cuddmaxmem', '4g', '-javamaxmem', '4g', str(mdp_wsl_path), '-pctl', f"{mission_str}", '-exportadvmdp', str(timestep_path / "adv.tra"), '-exportprodstates', str(timestep_path / "prod.sta")]
     else:
-        arguments = [str(prism_bin), '-cuddmaxmem', '4g', '-javamaxmem', '4g', '-pctl', f"'{mission_str}'", '-exportadvmdp', str(timestep_path / "adv.tra"), '-exportprodstates', str(timestep_path / "prod.tra")]
+        arguments = [str(prism_bin), '-cuddmaxmem', '4g', '-javamaxmem', '4g', str(mdp_path), '-pctl', f"{mission_str}", '-exportadvmdp', str(timestep_path / "adv.tra"), '-exportprodstates', str(timestep_path / "prod.sta")]
     popen = subprocess.run(arguments, text=True, encoding='utf-8', capture_output=True)
-    print(popen.stdout)
+    #print(popen.stdout)
     with output_path.open("w", encoding="utf-8") as output_file:
         output_file.write(popen.stdout)
     os.chdir(current_path)
@@ -49,7 +48,7 @@ def output_result(output_path):
         return
     result_line = result_line.split(':')[1]
     result_line = result_line.split(']')[0][2:]
-    result_line = ast.literal_eval(result_line)
+    result_line = ast.literal_eval("[" + result_line + "]")
 
     return result_line
 
@@ -64,6 +63,22 @@ def construct_team(team: dict):
             team[a][i][s+'__'+str(num)] = team[a][i].pop(s)     # replace sensor with sensor__num
             allsensors.append(s)
         
+def construct_team_from_list(satellite_list):
+    ''' add unique IDs to sensors in a team '__<num>'
+    '''
+    allsensors = []
+    new_satellite_list = []
+    for satellite in satellite_list:
+        satellite["sensors"] = [sensor for sensor in satellite["sensors"] if sensor["characteristics"]]
+        new_satellite = copy.deepcopy(satellite)
+        for idx, sensor in enumerate(satellite["sensors"]):
+            sensor_name = sensor["name"]   # sensor
+            num = allsensors.count(sensor_name) + 1
+            new_satellite["sensors"][idx]["name"] = sensor_name + '__' + str(num)
+            allsensors.append(sensor_name)
+        new_satellite_list.append(new_satellite)
+    return new_satellite_list
+
 def check_time(team, team_time_id, m_list, entity_dict, s_prefix, m_prefix):
     '''
     which measurements are free during what time intervals given a team
@@ -105,7 +120,7 @@ def team_per_timestep(team, team_time, t):
     for a_idx, agent in enumerate(team_time):
         team_at_timestep.append({"name": agent["name"], "sensors": []})
         for s_idx, sensor in enumerate(agent["sensors"]):
-            for interval in sensor:
+            for interval in sensor["times"]:
                 if t in range(interval[0], interval[1]):
                     team_at_timestep[-1]["sensors"].append(team[a_idx]["sensors"][s_idx])
         if team_at_timestep[-1]["sensors"] == []:   # if agent is not visible at t
@@ -113,57 +128,57 @@ def team_per_timestep(team, team_time, t):
     return team_at_timestep
 
 
-def main_parallelized(target, team, t):
-    team_time = find_time_bounds(team, target, path_time_json)
+def main_parallelized(entity_dict, inv_entity_dict, mission_file, mdp_filename, output_filename, simulation_path, prism_path, team, t):
+    team_time = copy.deepcopy(team)
     for a_idx, agent_info in enumerate(team_time):
         for s_idx, _ in enumerate(agent_info["sensors"]):
-            team_time[a_idx]["sensors"][s_idx] = [[t, t+1]]
+            team_time[a_idx]["sensors"][s_idx]["times"] = [[t, t+1]]
 
     prefix_list = ['a', 's', 'm']
     a_prefix, s_prefix, m_prefix = prefix_list
-    teamTimeID = generate_team_time_id(pathToDict, team_time, a_prefix, s_prefix)
+    teamTimeID = generate_team_time_id(entity_dict, team_time, a_prefix, s_prefix)
     
-    a_list, s_list, m_list = generate_asm_lists(team, pathToDict, a_prefix, s_prefix, m_prefix)
+    a_list, s_list, m_list = generate_asm_lists(team, entity_dict, a_prefix, s_prefix, m_prefix)
     numASM = [len(a_list), len(s_list), len(m_list)]
     num_a, num_s, num_m = numASM
 
     rewardList = ['numAgents']
     # print('# of agents, sensors, meas: ',numASM)
 
-    check_time(team, teamTimeID, m_list, pathToDict, s_prefix, m_prefix)
+    check_time(team, teamTimeID, m_list, entity_dict, s_prefix, m_prefix)
 
     # mission for PRISM
     missionLength = t+1
     # mission_file = encodeMission.generatemission_file(path_mission_json, m_list, missionFile, saveFile = True)
-    mission_str = generate_mission_multi(m_list, missionFile, rewardList)
+    mission_str = generate_mission_multi(m_list, mission_file, rewardList)
     
     # relationship matrices
-    relation_as = construct_as_matrix(team, pathToDict, num_a, num_s, a_prefix, s_prefix, a_list, s_list)
-    relation_ms = construct_ms_matrix(team, pathToDict, num_m, num_s, m_prefix, s_prefix, m_list, s_list)
+    relation_as = construct_as_matrix(team, entity_dict, num_a, num_s, a_prefix, s_prefix, a_list, s_list)
+    relation_ms = construct_ms_matrix(team, entity_dict, num_m, num_s, m_prefix, s_prefix, m_list, s_list)
     
-    relation_ms_no, probDict = not_meas_mat(team, pathToDict, relation_ms, num_m, num_s,  m_prefix, s_prefix, m_list, s_list)
+    relation_ms_no, probDict = not_meas_mat(team, entity_dict, relation_ms, num_m, num_s,  m_prefix, s_prefix, m_list, s_list)
 
     # modules for PRISM MDP
     allStates = all_states_as(num_a, num_s, relation_as, a_list, s_list, teamTimeID)
-    allStates, allStates_dict = all_states_asm(numASM, relation_as,relation_ms_no, allStates, probDict)
+    allStates, allStates_dict = all_states_asm(numASM, relation_as, relation_ms_no, allStates, probDict)
     
-    actions, timeDict = action2str(num_a, num_s, team_time, allStates, a_prefix, s_prefix, a_list, s_list, pathToDict)
+    actions, timeDict = action2str(num_a, num_s, team_time, allStates, a_prefix, s_prefix, a_list, s_list, inv_entity_dict)
 
-    kg_module = construct_kg_module(actions, timeDict, allStates_dict, numASM, prefix_list, a_list, s_list, team_time, relation_as, relation_ms, probDict, pathToDict, missionLength, t)
+    kg_module = construct_kg_module(actions, timeDict, allStates_dict, numASM, prefix_list, a_list, s_list, team_time, relation_as, relation_ms, probDict, entity_dict, missionLength, t)
 
     rewardsName = rewardList[0]    # criteria we care about
-    rewards_module1 = construct_num_agents_cost(num_a, num_s, team_time, allStates, a_prefix, s_prefix, a_list, s_list, m_list, pathToDict, rewardsName)
+    rewards_module1 = construct_num_agents_cost(num_a, num_s, team_time, allStates, a_prefix, s_prefix, a_list, s_list, m_list, inv_entity_dict, rewardsName)
     # rewards_module2 = constructEachPModule(num_a, num_s, num_m,a_list, s_list,teamTime, teamTimeID, relation_as, relation_ms_no,a_prefix, s_prefix, m_prefix, probDict, pathToDict)
     kg_module, rewards_module1 = replace_idx(a_list, s_list, m_list, kg_module, rewards_module1)
 
-        # save adv files to Verification folder
-    current_dir = str(os.getcwd())
-    timestep_path = current_dir+'/t'+str(t)
-    os.mkdir(timestep_path)
+    # save adv files to Verification folder
+    current_dir = simulation_path
+    timestep_path = current_dir / f't{t}'
+    timestep_path.mkdir(exist_ok=True)
 
     # save PRISM files to current directory
-    mdp_file = timestep_path + '/' + mdpFile
-    output_path = timestep_path + '/' + outputFile 
+    mdp_file = timestep_path / mdp_filename
+    output_path = timestep_path / output_filename 
     
     modules = [kg_module, rewards_module1]
     save_mdp_file(modules, mdp_file)
@@ -174,11 +189,11 @@ def main_parallelized(target, team, t):
     os.chdir(current_dir)
     result = output_result(output_path)
     
-    teams = parse_adv_main(pathToDict, timestep_path)
+    teams = parse_adv_main(inv_entity_dict, timestep_path)
     
     # print('time for timestep: ', time.time()-t0)
     # delete directory
-    shutil.rmtree(timestep_path)
+    shutil.rmtree(timestep_path, ignore_errors=True)
 
     return result, teams
 
