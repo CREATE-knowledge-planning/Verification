@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import multiprocessing as mp
+import copy # temporary
 
 from verification.encodeMission import find_mission_length, generate_mission_multi
 from verification.extractJSON import *
@@ -191,7 +192,11 @@ def main_parallelized(entity_dict, inv_entity_dict, mission_file, mdp_filename, 
     teams = parse_adv_main(inv_entity_dict, timestep_path)
     
     # delete directory
+<<<<<<< HEAD:verification/main.py
     shutil.rmtree(timestep_path, ignore_errors=True)
+=======
+    shutil.rmtree(timestep_path)
+>>>>>>> parallelized:main.py
 
     return result, teams
 
@@ -288,10 +293,36 @@ if __name__== "__main__":
         'Kanopus-V-IR': [{'MSU-IK-SR': {'Land surface temperature': [0.99899652]} }],\
         }
     newteam = {'DMSP F-16': [{'OLS': {'Cloud type': [0.8847111997185332]}}], 'Pleiades 1B': [{'HiRI': {'Land surface topography': [1.0]}}], 'COSMO-SkyMed 4': [{'SAR 2000': {'Land surface topography': [1.0]}}], 'KOMPSAT-3A': [{'AEISS-A': {'Land surface topography': [0.6852636304815738]}}], 'NOAA-18': [{'AMSU-A': {'Land surface temperature': [0.630040185701942], 'Cloud type': [1.0]}}, {'AVHRR/3': {'Land surface temperature': [1.0]}}, {'HIRS/4': {'Land surface temperature': [0.9750801108493535]}}, {'MHS': {'Cloud type': [1.0]}}], 'Metop-A': [{'AMSU-A': {'Land surface temperature': [1.0], 'Cloud type': [1.0]}}, {'AVHRR/3': {'Land surface temperature': [0.8881435443393207]}}, {'HIRS/4': {'Land surface temperature': [1.0]}}, {'MHS': {'Cloud type': [0.850511996278507]}}, {'IASI': {'Land surface temperature': [0.7791364271353445]}}], 'Sentinel-1 A': [{'C-Band SAR': {'Land surface topography': [0.9458354523040686]}}], 'CloudSat': [{'CPR (CloudSat)': {'Cloud type': [0.9476501928289525]}}], 'CSG-1': [{'CSG SAR': {'Land surface topography': [1.0]}}], 'GOES-17': [{'ABI': {'Fire temperature': [0.6532319622825102], 'Cloud type': [1.0], 'Land surface temperature': [1.0]}}]}    
-    team_bench.update(team2)
+    # team_bench.update(team2)
+
+    team_test = {"DMSP F-16":{"OLS__1":{"Cloud type":{"p_tp":0.9719224509828137,"p_fp":0.028077549017186287,"p_tn":0.028077549017186287,"p_fn":0.9719224509828137}}},"KOMPSAT-5":{"COSI__1":{"Land surface topography":{"p_tp":0.8357643166606845,"p_fp":0.16423568333931526,"p_tn":0.16423568333931549,"p_fn":0.8357643166606847}}},"GCOM-C":{"SGLI__1":{"Land surface temperature":{"p_tp":0.8993548852327783,"p_fp":0.08354129530159826,"p_tn":0.10064511476722171,"p_fn":0.9164587046984017},"Cloud type":{"p_tp":0.9719224509828137,"p_fp":0.028077549017186287,"p_tn":0.028077549017186287,"p_fn":0.9719224509828137}}},"Suomi NPP":{"ATMS__1":{"Land surface temperature":{"p_tp":0.8993548852327783,"p_fp":0.08354129530159826,"p_tn":0.10064511476722171,"p_fn":0.9164587046984017}},"VIIRS__1":{"Land surface temperature":{"p_tp":0.8993548852327783,"p_fp":0.08354129530159826,"p_tn":0.10064511476722171,"p_fn":0.9164587046984017},"Fire temperature":{"p_tp":0.9419513894749454,"p_fp":0.058047396826726216,"p_tn":0.05804861052505461,"p_fn":0.9419526031732738},"Cloud type":{"p_tp":0.9719224509828137,"p_fp":0.028077549017186287,"p_tn":0.028077549017186287,"p_fn":0.9719224509828137}}},"MEGHA-TROPIQUES":{"MADRAS__1":{"Cloud type":{"p_tp":0.9719224509828137,"p_fp":0.028077549017186287,"p_tn":0.028077549017186287,"p_fn":0.9719224509828137}},"ScaRaB__1":{"Cloud type":{"p_tp":0.9719224509828137,"p_fp":0.028077549017186287,"p_tn":0.028077549017186287,"p_fn":0.9719224509828137}}},"FY-3B":{"IRAS__1":{"Land surface temperature":{"p_tp":0.8993548852327783,"p_fp":0.08354129530159826,"p_tn":0.10064511476722171,"p_fn":0.9164587046984017}},"MWRI__1":{"Cloud type":{"p_tp":0.9719224509828137,"p_fp":0.028077549017186287,"p_tn":0.028077549017186287,"p_fn":0.9719224509828137},"Land surface temperature":{"p_tp":0.8993548852327783,"p_fp":0.08354129530159826,"p_tn":0.10064511476722171,"p_fn":0.9164587046984017}},"MWTS-1__1":{"Land surface temperature":{"p_tp":0.8993548852327783,"p_fp":0.08354129530159826,"p_tn":0.10064511476722171,"p_fn":0.9164587046984017}},"VIRR__1":{"Cloud type":{"p_tp":0.9719224509828137,"p_fp":0.028077549017186287,"p_tn":0.028077549017186287,"p_fn":0.9719224509828137},"Land surface temperature":{"p_tp":0.8993548852327783,"p_fp":0.08354129530159826,"p_tn":0.10064511476722171,"p_fn":0.9164587046984017}}},"INSAT-3DR":{"Imager (INSAT 3D)__1":{"Land surface temperature":{"p_tp":0.8993548852327783,"p_fp":0.08354129530159826,"p_tn":0.10064511476722171,"p_fn":0.9164587046984017}}},"Metop-C":{"AMSU-A__1":{"Land surface temperature":{"p_tp":0.8993548852327783,"p_fp":0.08354129530159826,"p_tn":0.10064511476722171,"p_fn":0.9164587046984017},"Cloud type":{"p_tp":0.9719224509828137,"p_fp":0.028077549017186287,"p_tn":0.028077549017186287,"p_fn":0.9719224509828137}},"AVHRR/3__1":{"Land surface temperature":{"p_tp":0.8993548852327783,"p_fp":0.08354129530159826,"p_tn":0.10064511476722171,"p_fn":0.9164587046984017}},"IASI__1":{"Land surface temperature":{"p_tp":0.8993548852327783,"p_fp":0.08354129530159826,"p_tn":0.10064511476722171,"p_fn":0.9164587046984017}},"MHS__1":{"Cloud type":{"p_tp":0.9719224509828137,"p_fp":0.028077549017186287,"p_tn":0.028077549017186287,"p_fn":0.9719224509828137}}}}
+    team_test2 = {'Suomi NPP': {'ATMS__1': {'Land surface temperature': {'p_tp': 0.8993548852327783, 'p_fp': 0.08354129530159826, 'p_tn': 0.10064511476722171, 'p_fn': 0.9164587046984017}}, 'VIIRS__1': {'Land surface temperature': {'p_tp': 0.8993548852327783, 'p_fp': 0.08354129530159826, 'p_tn': 0.10064511476722171, 'p_fn': 0.9164587046984017}, 'Fire temperature': {'p_tp': 0.9419513894749454, 'p_fp': 0.058047396826726216, 'p_tn': 0.05804861052505461, 'p_fn': 0.9419526031732738}, 'Cloud type': {'p_tp': 0.9719224509828137, 'p_fp': 0.028077549017186287, 'p_tn': 0.028077549017186287, 'p_fn': 0.9719224509828137}}}, 'Metop-B': {'AMSU-A__1': {'Land surface temperature': {'p_tp': 0.8993548852327783, 'p_fp': 0.08354129530159826, 'p_tn': 0.10064511476722171, 'p_fn': 0.9164587046984017}, 'Cloud type': {'p_tp': 0.9719224509828137, 'p_fp': 0.028077549017186287, 'p_tn': 0.028077549017186287, 'p_fn': 0.9719224509828137}}, 'AVHRR/3__1': {'Land surface temperature': {'p_tp': 0.8993548852327783, 'p_fp': 0.08354129530159826, 'p_tn': 0.10064511476722171, 'p_fn': 0.9164587046984017}}, 'HIRS/4__1': {'Land surface temperature': {'p_tp': 0.8993548852327783, 'p_fp': 0.08354129530159826, 'p_tn': 0.10064511476722171, 'p_fn': 0.9164587046984017}}, 'IASI__1': {'Land surface temperature': {'p_tp': 0.8993548852327783, 'p_fp': 0.08354129530159826, 'p_tn': 0.10064511476722171, 'p_fn': 0.9164587046984017}}, 'MHS__1': {'Cloud type': {'p_tp': 0.9719224509828137, 'p_fp': 0.028077549017186287, 'p_tn': 0.028077549017186287, 'p_fn': 0.9719224509828137}}}, 'JPSS-1': {'ATMS__2': {'Land surface temperature': {'p_tp': 0.8993548852327783, 'p_fp': 0.08354129530159826, 'p_tn': 0.10064511476722171, 'p_fn': 0.9164587046984017}}, 'VIIRS__2': {'Land surface temperature': {'p_tp': 0.8993548852327783, 'p_fp': 0.08354129530159826, 'p_tn': 0.10064511476722171, 'p_fn': 0.9164587046984017}, 'Fire temperature': {'p_tp': 0.9419513894749454, 'p_fp': 0.058047396826726216, 'p_tn': 0.05804861052505461, 'p_fn': 0.9419526031732738}, 'Cloud type': {'p_tp': 0.9719224509828137, 'p_fp': 0.028077549017186287, 'p_tn': 0.028077549017186287, 'p_fn': 0.9719224509828137}}}, 'RCM-1': {'SAR (RCM)__1': {'Land surface topography': {'p_tp': 0.8357643166606845, 'p_fp': 0.16423568333931526, 'p_tn': 0.16423568333931549, 'p_fn': 0.8357643166606847}}}, 'Aura': {'OMI__1': {'Cloud type': {'p_tp': 0.9719224509828137, 'p_fp': 0.028077549017186287, 'p_tn': 0.028077549017186287, 'p_fn': 0.9719224509828137}}, 'TES__1': {'Land surface temperature': {'p_tp': 0.8993548852327783, 'p_fp': 0.08354129530159826, 'p_tn': 0.10064511476722171, 'p_fn': 0.9164587046984017}}}, 'Meteor-M N2-2': {'IKFS-2__1': {'Cloud type': {'p_tp': 0.9719224509828137, 'p_fp': 0.028077549017186287, 'p_tn': 0.028077549017186287, 'p_fn': 0.9719224509828137}, 'Land surface temperature': {'p_tp': 0.8993548852327783, 'p_fp': 0.08354129530159826, 'p_tn': 0.10064511476722171, 'p_fn': 0.9164587046984017}}, 'MSU-MR__1': {'Land surface temperature': {'p_tp': 0.8993548852327783, 'p_fp': 0.08354129530159826, 'p_tn': 0.10064511476722171, 'p_fn': 0.9164587046984017}}}, 'DMSP F-18': {'OLS__1': {'Cloud type': {'p_tp': 0.9719224509828137, 'p_fp': 0.028077549017186287, 'p_tn': 0.028077549017186287, 'p_fn': 0.9719224509828137}}}, 'Kanopus-V N3': {'MSU-IK-SR__1': {'Cloud type': {'p_tp': 0.9719224509828137, 'p_fp': 0.028077549017186287, 'p_tn': 0.028077549017186287, 'p_fn': 0.9719224509828137}, 'Land surface temperature': {'p_tp': 0.8993548852327783, 'p_fp': 0.08354129530159826, 'p_tn': 0.10064511476722171, 'p_fn': 0.9164587046984017}}}}
 
 
-    team = team_bench
+    team = team_test
+
+    def convert_team(team):
+        ''' ***** TEMPORARY FOR TESTING.*****
+        '''
+        new_team = copy.deepcopy(team)
+        for a in list(team.keys()):
+            new_team[a] = []
+            new_dict1 = {}
+            for s in list(team[a].keys()):
+                new_dict = {}
+                for m in list(team[a][s].keys()):
+                    # print(team[a][s][m])
+                    new_dict[m] = [team[a][s][m]["p_tp"]]
+                
+                new_dict1[s] = new_dict
+                new_team[a].append(new_dict1)
+                # print(new_dict)
+
+        return new_team
+
+    # team = convert_team(team)
+    # print(team)
+    
     main(team, path_mission_json)
     
 
@@ -312,3 +343,11 @@ if __name__== "__main__":
     # t_tot = time.time()
     # elapsed = t_tot - t_init
     # print('total time elapsed: ', elapsed)
+<<<<<<< HEAD:verification/main.py
+=======
+    
+
+
+
+
+>>>>>>> parallelized:main.py

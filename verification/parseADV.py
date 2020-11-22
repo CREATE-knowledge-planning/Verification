@@ -216,7 +216,7 @@ def pareto_plot_all(result, teams, showplot = False):
     ''' plot pareto front given parallelized teaming plans
     '''
     dict_temp = {}
-    
+
     for i in range(len(result)):
         # print(list(result[i]))
         # print(round(list(result[i]),5))

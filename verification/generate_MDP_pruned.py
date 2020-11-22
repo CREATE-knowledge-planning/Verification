@@ -249,13 +249,18 @@ def all_states_asm(num_asm, relation_as, relation_ms_no, allStates, prob_dict):
     allStates_new = [(0,)*num_m]
     for state in allStates:
         m_prob_dict = m_prob_all(num_asm, relation_as, state, meas_zero_dict, prob_dict)
-        state_as = tuple(state.flatten())
         
+        state_as = tuple(state.flatten())
+
         if not np.any(state):     # if all states are zero:
             all_states_dict[state_as] = m_prob_dict
             allStates_new.append(state)
-        elif (1,)*num_m in m_prob_dict:
-            possible = True
+        # elif (1,)*num_m in mProb_dict:
+        for m_combo in m_prob_dict.keys():     # check if mProb_dict contains a combo with at least 2 m's = 1
+            if sum(list(m_combo)) >= 2:
+                possible = True
+                break
+        if possible:
         #     # if mProb_dict[(1,)*num_m] > 0.65:
             all_states_dict[state_as] = m_prob_dict
             allStates_new.append(state)
@@ -961,7 +966,11 @@ def replace_idx(a_list, s_list, m_list, kg_module, reward_module):
         allM += " & ".join([f"{m}=1" for m in m_list])
         allM += '); \n'
     else:
-        allM = '\n formula allM = true; \n '
+        allM = '\n formula allM = ('
+        for m in m_list:
+            allM += m + ' + '
+        allM = allM[:-3] + ' = 2); \n '
+
 
     kg_module = allM + kg_module
     return kg_module, reward_module
