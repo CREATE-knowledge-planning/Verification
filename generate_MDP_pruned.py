@@ -245,16 +245,23 @@ def all_states_asm(numASM, relation_as,relation_ms_no, allStates, probDict):
     allStates_new = [(0,)*num_m]
     for state in allStates:
         mProb_dict = mProb_all(numASM, relation_as, state, measZero_dict, probDict)
+
         state_as = tuple(state.flatten())
-        
+
         if not np.any(state):     # if all states are zero:
             allStates_dict[state_as] = mProb_dict
             allStates_new.append(state)
-        elif (1,)*num_m in mProb_dict:
-            possible = True
+        # elif (1,)*num_m in mProb_dict:
+        for m_combo in mProb_dict.keys():     # check if mProb_dict contains a combo with at least 2 m's = 1
+            if sum(list(m_combo)) >= 2:
+                possible = True
+                break
+        if possible:
         #     # if mProb_dict[(1,)*num_m] > 0.65:
             allStates_dict[state_as] = mProb_dict
             allStates_new.append(state)
+    if not possible:
+        print('not possible!')
         # allStates_dict[state_as] = mProb_dict
         # allStates_new.append(state)
 
@@ -771,12 +778,14 @@ def nextStatesFromAction(actions, timeDict, allStates_dict, numASM, relation_as,
         trans_str = ""
         state = action2state(num_a, num_s, row_prefix, col_prefix, actionStates[act])
         next_as = next2str_as(numASM, state, row_prefix, col_prefix, relation_as)
+        if next_as != '':
+            next_as += " & "
         for m in allStates_dict[tuple(state.flatten())].keys():
             prob = allStates_dict[tuple(state.flatten())][m] 
             # if count != 0:
             #     trans_str += "\n        + "
             if prob != '0':      # ignore 0 probability transitions
-                str_state = str(prob)+ ": " + next_as + " & " + str(m_array[m]) + " &  (t'= t+1) \n"
+                str_state = str(prob)+ ": " + next_as + str(m_array[m]) + " &  (t'= t+1) \n"
                 trans_str += str_state + "        + "
                 count += 1
         trans_dict[actions[act]] = trans_str[:-11] + ';' + '\n'
@@ -955,8 +964,8 @@ def replace_idx(a_list, s_list, m_list, kg_module, reward_module):
     else:
         allM = '\n formula allM = ('
         for m in m_list:
-            allM += m + '=1 & '
-        allM = allM[:-3] + '); \n '
+            allM += m + ' + '
+        allM = allM[:-3] + ' = 2); \n '
 
 
     kg_module = allM + kg_module

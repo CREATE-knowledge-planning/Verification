@@ -82,8 +82,9 @@ def generate_path(adv_file_path, sta_file_path):
             for s in range(len(as_states)):
                 if as_states[s] != '0':
                     # agent = stateList[s].split('_')[0]
-                    agent = stateList[s]
-                    eachTime.add(agent)
+                    if len(stateList) != 0:
+                        agent = stateList[s]
+                        eachTime.add(agent)
 
             pathStates[t] = eachTime
     return pathStates, actions, allP
@@ -211,7 +212,7 @@ def pareto_plot_all(result, teams, showplot = False):
     ''' plot pareto front given parallelized teaming plans
     '''
     dict_temp = {}
-    
+
     for i in range(len(result)):
         # print(list(result[i]))
         # print(round(list(result[i]),5))
