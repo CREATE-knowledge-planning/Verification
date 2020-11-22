@@ -7,6 +7,8 @@ from pathlib import Path
 from verification.extractJSON import find_name
 import glob
 import main
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt 
 import numpy as np
 
@@ -83,8 +85,9 @@ def generate_path(adv_file_path, sta_file_path):
             for s in range(len(as_states)):
                 if as_states[s] != '0':
                     # agent = stateList[s].split('_')[0]
-                    agent = stateList[s]
-                    eachTime.add(agent)
+                    if len(stateList) > 0:
+                        agent = stateList[s]
+                        eachTime.add(agent)
 
             pathStates[t] = eachTime
     return pathStates, actions, allP

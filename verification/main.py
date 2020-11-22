@@ -128,7 +128,7 @@ def team_per_timestep(team, team_time, t):
     return team_at_timestep
 
 
-def main_parallelized(entity_dict, inv_entity_dict, mission_file, mdp_filename, output_filename, simulation_path, prism_path, team, m_list, prefix_list, t):
+def main_parallelized(entity_dict, inv_entity_dict, mission_file, mdp_filename, output_filename, simulation_path, prism_path, team, m_list, prefix_list, t, prism_wsl):
     team_time = copy.deepcopy(team)
     for a_idx, agent_info in enumerate(team_time):
         for s_idx, _ in enumerate(agent_info["sensors"]):
@@ -182,7 +182,7 @@ def main_parallelized(entity_dict, inv_entity_dict, mission_file, mdp_filename, 
     modules = [kg_module, rewards_module1]
     save_mdp_file(modules, mdp_file)
   
-    call_prism(mdp_file, mission_str, output_path, prism_path, timestep_path)
+    call_prism(mdp_file, mission_str, output_path, prism_path, timestep_path, prism_wsl)
  
     # change directory back
     os.chdir(current_dir)

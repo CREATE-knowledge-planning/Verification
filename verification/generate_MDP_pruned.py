@@ -744,11 +744,11 @@ def action2state(num_a, num_s, row_prefix, col_prefix, action):
 def nextStatesFromAction(actions, timeDict, allStates_dict, numASM, relation_as, prefixList, probDict, entity_dict):
     '''based on the action given, generate transition probabilities (aka generate everything after the "->" 
     outputs {["TO_<STATE>"]}: "<P:states>"}
-
+ 
     INPUTS: 
     actions, timeDict (from function action2str)
     allStates_dict (from function all_states_asm)
-
+ 
     '''
     # allStates_dict = all_states_asm(numASM, a_list, s_list, relation_as,relation_ms_no, teamTimeID, probDict)
     # actions, timeDict = action2str(num_a, num_s, teamTime, teamTimeID,relation_as, row_prefix, col_prefix, a_list, s_list, pathToDict)
@@ -756,7 +756,7 @@ def nextStatesFromAction(actions, timeDict, allStates_dict, numASM, relation_as,
     # print('HERE1')
     num_a, num_s, num_m = numASM
     row_prefix, col_prefix, m_prefix = prefixList
-
+ 
     actionStates = [s.replace('TO_','') for s in actions] 
     t = time.time()
     # {state a_s:{state m: probability}}
@@ -767,12 +767,14 @@ def nextStatesFromAction(actions, timeDict, allStates_dict, numASM, relation_as,
         trans_str = ""
         state = action2state(num_a, num_s, row_prefix, col_prefix, actionStates[act])
         next_as = next2str_as(numASM, state, row_prefix, col_prefix, relation_as)
+        if next_as != '':
+            next_as += " & "
         for m in allStates_dict[tuple(state.flatten())].keys():
             prob = allStates_dict[tuple(state.flatten())][m] 
             # if count != 0:
             #     trans_str += "\n        + "
             if prob != '0':      # ignore 0 probability transitions
-                str_state = str(prob)+ ": " + next_as + " & " + str(m_array[m]) + " &  (t'= t+1) \n"
+                str_state = str(prob)+ ": " + next_as + str(m_array[m]) + " &  (t'= t+1) \n"
                 trans_str += str_state + "        + "
                 count += 1
         trans_dict[actions[act]] = trans_str[:-11] + ';' + '\n'
