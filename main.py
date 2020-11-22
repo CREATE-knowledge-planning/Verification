@@ -162,7 +162,7 @@ def main_parallelized(target, team, m_list, prefixList, t):
     teams = parseADV.parse_adv_main(pathToDict, timestep_path)
     
     # delete directory
-    # shutil.rmtree(timestep_path)
+    shutil.rmtree(timestep_path)
 
     return result, teams
 

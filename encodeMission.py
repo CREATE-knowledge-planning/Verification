@@ -48,7 +48,7 @@ def generateMissionPCTL(pathMissionJSON, m_list, missionFile, saveFile = False):
 def generateMissionMulti(m_list, missionFile, rewardList, saveFile = False):
 	'''mult-objective, ex: multi(Pmax=? [G (m1=1 & m2=1)], R{reward1}min=? [ C ])'''
 
-	spec = 'multi(Pmax=? [G (allM'
+	spec = 'multi(Pmax=? [G (allM '
 
 	# for m in m_list:
 	# 	spec += m + '=1 & '

@@ -260,8 +260,6 @@ def all_states_asm(numASM, relation_as,relation_ms_no, allStates, probDict):
         #     # if mProb_dict[(1,)*num_m] > 0.65:
             allStates_dict[state_as] = mProb_dict
             allStates_new.append(state)
-    if not possible:
-        print('not possible!')
         # allStates_dict[state_as] = mProb_dict
         # allStates_new.append(state)
 
