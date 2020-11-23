@@ -41,7 +41,7 @@ def find_time_bounds(team, target, access_intervals):
             duration = []
 
             if time_array['timeArray'] == []:    # if empty
-                raise ValueError ('location is never visible to sensor ' + sensor_name + ' on platform ' + agent)
+                raise ValueError ('location is never visible to sensor ' + sensor_name + ' on platform ' + agent["name"])
 
             for d in time_array['timeArray']: 	# for each dict within timeArray
                 if d['isRise']:      			# isRise: True

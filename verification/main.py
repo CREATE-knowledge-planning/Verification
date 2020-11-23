@@ -28,8 +28,8 @@ def call_prism(mdp_path: Path, mission_str, output_path: Path, prism_path: Path,
         # First, turn all relevant paths into wsl paths
         prism_wsl_path = subprocess.run(['wsl', 'wslpath', prism_bin.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
         mdp_wsl_path = subprocess.run(['wsl', 'wslpath', mdp_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
-        output_wsl_path = subprocess.run(['wsl', 'wslpath', output_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
-        arguments = ['wsl', prism_wsl_path, '-cuddmaxmem', '4g', '-javamaxmem', '4g', str(mdp_wsl_path), '-pctl', f"{mission_str}", '-exportadvmdp', str(timestep_path / "adv.tra"), '-exportprodstates', str(timestep_path / "prod.sta")]
+        timestep_wsl_path = subprocess.run(['wsl', 'wslpath', timestep_path.as_posix()], capture_output=True, encoding='utf-8').stdout[:-1]
+        arguments = ['wsl', prism_wsl_path, '-cuddmaxmem', '4g', '-javamaxmem', '4g', str(mdp_wsl_path), '-pctl', f"{mission_str}", '-exportadvmdp', timestep_wsl_path + "/adv.tra", '-exportprodstates', timestep_wsl_path + "/prod.sta"]
     else:
         arguments = [str(prism_bin), '-cuddmaxmem', '4g', '-javamaxmem', '4g', str(mdp_path), '-pctl', f"{mission_str}", '-exportadvmdp', str(timestep_path / "adv.tra"), '-exportprodstates', str(timestep_path / "prod.sta")]
     popen = subprocess.run(arguments, text=True, encoding='utf-8', capture_output=True)
@@ -192,11 +192,7 @@ def main_parallelized(entity_dict, inv_entity_dict, mission_file, mdp_filename, 
     teams = parse_adv_main(inv_entity_dict, timestep_path)
     
     # delete directory
-<<<<<<< HEAD:verification/main.py
     shutil.rmtree(timestep_path, ignore_errors=True)
-=======
-    shutil.rmtree(timestep_path)
->>>>>>> parallelized:main.py
 
     return result, teams
 
@@ -343,11 +339,3 @@ if __name__== "__main__":
     # t_tot = time.time()
     # elapsed = t_tot - t_init
     # print('total time elapsed: ', elapsed)
-<<<<<<< HEAD:verification/main.py
-=======
-    
-
-
-
-
->>>>>>> parallelized:main.py

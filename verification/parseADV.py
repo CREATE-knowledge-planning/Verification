@@ -4,6 +4,7 @@
 
 import itertools
 from pathlib import Path
+import random
 from verification.extractJSON import find_name
 import glob
 import main
@@ -75,21 +76,24 @@ def generate_path(adv_file_path, sta_file_path):
         stateList = [ x for x in stateList if x[0] == 'a' ]    # only care about agent-sensor states 
         
         for stateIdx in path:
-            lineState = line_w_string(str(stateIdx)+ ':', lines)[0]
-            as_states = lineState.split(':')[1][3:(3+2*len(stateList)-1)]   # only care about agent-sensor states
-            t = int(lineState.split(':')[1][-2])
-            as_states = as_states.split(',')
+            if stateIdx > len(lines)-2:
+                print("The state list is too short!", adv_file_path, sta_file_path)
+            else:
+                lineState = line_w_string(str(stateIdx)+ ':', lines)[0]
+                as_states = lineState.split(':')[1][3:(3+2*len(stateList)-1)]   # only care about agent-sensor states
+                t = int(lineState.split(':')[1][-2])
+                as_states = as_states.split(',')
 
-            # for each timestep, determine which agents are being used
-            eachTime = set()
-            for s in range(len(as_states)):
-                if as_states[s] != '0':
-                    # agent = stateList[s].split('_')[0]
-                    if len(stateList) > 0:
-                        agent = stateList[s]
-                        eachTime.add(agent)
-
-            pathStates[t] = eachTime
+                # for each timestep, determine which agents are being used
+                eachTime = set()
+                for s in range(len(as_states)):
+                    if as_states[s] != '0':
+                        # agent = stateList[s].split('_')[0]
+                        if len(stateList) > 0:
+                            agent = stateList[s]
+                            eachTime.add(agent)
+                eachTime = set()
+                pathStates[t] = eachTime
     return pathStates, actions, allP
 
 def convert_agents(actions, inv_entity_dict, pathStates):
@@ -164,7 +168,7 @@ def calculate_reward2(actions, allP):
 def parse_adv_main(inv_entity_dict, timestep_path: Path):
     teams = {}
 
-    num = len(glob.glob1(timestep_path,"*.tra"))     # number of adversary files
+    num = len(glob.glob1(timestep_path, "*.tra"))     # number of adversary files
     for i in range(num):
         # print('\nadv' + str(i+1) + '.tra')
         adv_file_path = timestep_path / f"adv{i+1}.tra"
@@ -240,7 +244,18 @@ def pareto_plot_all(result, teams, showplot = False):
             adv_list.insert(0, (0.0,0.0))
         dict_temp[i] = adv_list
 
-    combos = list(itertools.product(*dict_temp.values()))
+    # combos = list(itertools.product(*dict_temp.values()))
+    iterations = 10**5
+ 
+    combos = []
+    for i in range(iterations):
+        combo = []
+        for j in range(len(result)):
+            num_pts = len(dict_temp[j])-1
+            idx = random.randint(0, num_pts)
+            prob_reward = dict_temp[j][idx]
+            combo.append(prob_reward)
+        combos.append(combo)
     
     # find all possible (probability, reward) points and corresponding teams
     PRtot = []

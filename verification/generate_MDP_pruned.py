@@ -264,6 +264,8 @@ def all_states_asm(num_asm, relation_as, relation_ms_no, allStates, prob_dict):
         #     # if mProb_dict[(1,)*num_m] > 0.65:
             all_states_dict[state_as] = m_prob_dict
             allStates_new.append(state)
+    if not possible:
+        print('not possible!')
         # allStates_dict[state_as] = mProb_dict
         # allStates_new.append(state)
 
@@ -961,15 +963,13 @@ def replace_idx(a_list, s_list, m_list, kg_module, reward_module):
         kg_module = kg_module.replace("m" + str(i+1) + "'", m_list[i] + "'")
 
     
-    if len(m_list) > 0:
-        allM = '\nformula allM = ('
-        allM += " & ".join([f"{m}=1" for m in m_list])
-        allM += '); \n'
+    if len(m_list) == 0:
+        allM = '\nformula allM = true;\n'
     else:
         allM = '\n formula allM = ('
         for m in m_list:
             allM += m + ' + '
-        allM = allM[:-3] + ' = 2); \n '
+        allM = allM[:-3] + ' >= 2); \n '
 
 
     kg_module = allM + kg_module
