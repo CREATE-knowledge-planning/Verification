@@ -963,7 +963,7 @@ def replace_idx(a_list, s_list, m_list, kg_module, reward_module):
         allM = '\n formula allM = ('
         for m in m_list:
             allM += m + ' + '
-        allM = allM[:-3] + ' = 2); \n '
+        allM = allM[:-3] + ' >= 2); \n '
 
 
     kg_module = allM + kg_module
