@@ -2,6 +2,7 @@
 
 # PARSE SYNTHESIZED PATH GENERATED FROM PRISM
 
+import copy
 from pathlib import Path
 import random
 from verification.extractJSON import find_name
@@ -272,8 +273,9 @@ def pareto_plot_all(result, teams, timestep_dict, showplot = False):
     '''
     # round rewards
     # print(teams)
-    for team in teams.keys():
-        teams[(team[0], round(team[1], 5))] = teams.pop(team)
+    old_keys = list(teams.keys())
+    for key in old_keys:
+        teams[(key[0], round(key[1], 5))] = teams.pop(key)
 
     dict_temp = fill_in_rewards(timestep_dict)
     
